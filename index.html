@@ -324,12 +324,20 @@
     .modal-close {
       margin-top: 15px;
       width: 100%;
-      padding: 10px;
-      background: #eee;
-      border: none;
+      padding: 14px;
+      background: #fff;
+      color: #e94560;
+      border: 2px solid #e94560;
       border-radius: 8px;
       cursor: pointer;
-      font-size: 14px;
+      font-size: 15px;
+      font-weight: 600;
+      transition: background 0.2s, color 0.2s;
+    }
+    .modal-close:hover {
+      background: #e94560;
+      color: #fff;
+      transform: none;
     }
 
     button {
@@ -471,6 +479,84 @@
       color: #888;
       margin-bottom: 8px;
     }
+
+    /* Stepper controls are mobile-only; hidden on desktop */
+    .stepper-controls { display: none; }
+    .stepper-controls .step-btn {
+      padding: 12px 16px;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+    .stepper-controls .step-btn:disabled { opacity: 0.4; }
+    .step-label {
+      flex: 1;
+      text-align: center;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+    .step-label #step-name { font-weight: 600; font-size: 15px; }
+    .step-label #step-count { color: #aaa; font-size: 11px; }
+
+    /* Mobile: stack the bracket vertically instead of side-scrolling */
+    @media (max-width: 768px) {
+      /* Round-by-round stepper: show only the round matching data-step */
+      .stepper-controls {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        max-width: 500px;
+        margin: 0 auto 15px;
+      }
+      #user-bracket[data-step="r32"] .round:not(.round-r32),
+      #user-bracket[data-step="r16"] .round:not(.round-r16),
+      #user-bracket[data-step="qf"] .round:not(.round-qf),
+      #user-bracket[data-step="sf"] .round:not(.round-sf),
+      #user-bracket[data-step="final"] .round:not(.round-final) {
+        display: none;
+      }
+      body { padding: 12px; }
+      h1 { font-size: 22px; }
+
+      .bracket-container {
+        overflow-x: visible;
+        padding: 8px 0;
+        display: block;
+      }
+      .bracket {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 4px;
+        padding: 0;
+        width: 100%;
+      }
+
+      /* Connector lines make no sense in a vertical list */
+      .connector { display: none; }
+
+      /* Base layout centers + shrink-wraps each round; force full width instead */
+      .round { width: 100%; align-items: stretch; }
+      .round-title { margin: 10px 0 8px; }
+
+      /* Collapse the big per-round vertical gaps; inline gap:0 needs overriding too */
+      .matchups { gap: 8px !important; width: 100%; }
+      .matchup { width: 100%; }
+
+      .team-slot, .team-slot.empty {
+        min-width: 0;
+        width: 100%;
+        font-size: 14px;
+        padding: 14px 12px;
+        white-space: normal;
+      }
+      .matchup-label { font-size: 11px; }
+
+      .champion-display { padding: 10px 0; }
+      .champion-slot { width: 100%; min-width: 0; font-size: 15px; padding: 14px; }
+      .third-teams { font-size: 12px; }
+
+      /* Roomier picker modal */
+      .team-option { padding: 16px 10px; font-size: 14px; }
+    }
   </style>
 </head>
 <body>
@@ -510,6 +596,15 @@
       <span>3rd: 8pts</span>
       <span>Champ: 20pts</span>
       <span>Max: 99pts</span>
+    </div>
+
+    <div class="stepper-controls" id="stepper-controls">
+      <button class="step-btn" id="step-prev" onclick="stepPrev()">← Back</button>
+      <div class="step-label">
+        <span id="step-name">Round of 32</span><br>
+        <span id="step-count">Step 1 of 5</span>
+      </div>
+      <button class="step-btn" id="step-next" onclick="stepNext()">Next →</button>
     </div>
 
     <div class="bracket-container">
@@ -681,10 +776,46 @@
     let firebaseConfigured = false;
     let currentSelection = null;
 
+    // Mobile round-by-round stepper
+    const STEPS = [
+      { key: 'r32', name: 'Round of 32' },
+      { key: 'r16', name: 'Round of 16' },
+      { key: 'qf', name: 'Quarterfinals' },
+      { key: 'sf', name: 'Semifinals' },
+      { key: 'final', name: 'Final & Champion' }
+    ];
+    let currentStep = 0;
+
+    function applyStep() {
+      const c = document.getElementById('user-bracket');
+      c.dataset.step = STEPS[currentStep].key;
+      document.getElementById('step-name').textContent = STEPS[currentStep].name;
+      document.getElementById('step-count').textContent = `Step ${currentStep + 1} of ${STEPS.length}`;
+      document.getElementById('step-prev').disabled = currentStep === 0;
+      document.getElementById('step-next').disabled = currentStep === STEPS.length - 1;
+    }
+
+    function stepNext() {
+      if (currentStep < STEPS.length - 1) {
+        currentStep++;
+        applyStep();
+        document.getElementById('stepper-controls').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+
+    function stepPrev() {
+      if (currentStep > 0) {
+        currentStep--;
+        applyStep();
+        document.getElementById('stepper-controls').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+
     function init() {
       initFirebase();
       renderBracket(state, 'user-bracket', false);
       renderBracket(actualResults, 'admin-bracket', true);
+      applyStep();
     }
 
     function initFirebase() {
