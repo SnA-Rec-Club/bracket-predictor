@@ -1320,51 +1320,60 @@
       const col = document.createElement('div');
       col.className = 'round round-final';
 
-      // Get SF losers for 3rd place match
+      // The Final is the two semifinal winners; click one to crown the champion.
+      // 3rd place is the two semifinal losers.
       const sfLosers = getSFLosers(data);
-      const canPick3rd = sfLosers.length === 2;
+
+      // Two stacked competitors; `winner` (champion or 3rd) highlights.
+      const pair = (a, b, winner, handler) => {
+        const mk = (team, side) => {
+          if (!team) return `<div class="team-line empty">–</div>`;
+          const won = winner && winner === team;
+          const lost = winner && !won;
+          return `<div class="team-line ${won ? 'won' : ''} ${lost ? 'lost' : ''}" onclick="${handler}('${side}',${isAdmin})">${formatTeam(team)}</div>`;
+        };
+        return `<div class="matchup"><div class="matchup-pair">${mk(a, 'home')}${mk(b, 'away')}</div></div>`;
+      };
 
       col.innerHTML = `
         <div class="round-title">Final<br><span class="points">12pts</span></div>
-        <div class="matchups" style="gap:0;">
-          <div class="matchup">
-            <div class="team-slot ${data.final[0] ? 'selected' : 'empty'} ${!data.sf[0] ? 'locked' : ''}"
-                 onclick="${data.sf[0] ? `selectFinalSlot(0,${isAdmin})` : ''}">
-              ${data.final[0] ? formatTeam(data.final[0]) : (data.sf[0] ? 'Pick finalist' : '-')}
-            </div>
-          </div>
-        </div>
+        <div class="match-time">${fmtMatchTime(getMatchDate('final', 0))}</div>
+        ${pair(data.sf[0], data.sf[1], data.champion, 'pickFinalSide')}
         <div class="champion-display">
           <div class="trophy">🏆</div>
           <div class="round-title" style="margin:5px 0;">Champion<br><span class="points">20pts</span></div>
-          <div class="match-time">Final · ${fmtMatchTime(getMatchDate('final', 0))}</div>
-          <div class="champion-slot ${data.champion ? '' : 'empty'}"
-               onclick="${data.final[0] && data.final[1] ? `selectSlot('champion',0,${isAdmin})` : ''}">
-            ${data.champion ? formatTeam(data.champion) : (data.final[0] && data.final[1] ? 'Pick champion' : '-')}
-          </div>
-        </div>
-        <div class="matchups" style="gap:0;">
-          <div class="matchup">
-            <div class="team-slot ${data.final[1] ? 'selected' : 'empty'} ${!data.sf[1] ? 'locked' : ''}"
-                 onclick="${data.sf[1] ? `selectFinalSlot(1,${isAdmin})` : ''}">
-              ${data.final[1] ? formatTeam(data.final[1]) : (data.sf[1] ? 'Pick finalist' : '-')}
-            </div>
+          <div class="champion-slot ${data.champion ? '' : 'empty'}" style="cursor:default;">
+            ${data.champion ? formatTeam(data.champion) : '—'}
           </div>
         </div>
         <div class="third-place-container">
           <div class="round-title" style="margin-top:15px;">3rd Place<br><span class="points">8pts</span></div>
           <div class="match-time">${fmtMatchTime(getMatchDate('third', 0))}</div>
-          <div class="third-place-match">
-            <div class="third-teams">${canPick3rd ? `${formatTeam(sfLosers[0])} vs ${formatTeam(sfLosers[1])}` : 'SF losers'}</div>
-            <div class="team-slot ${data.thirdPlace ? 'selected' : 'empty'} ${!canPick3rd ? 'locked' : ''}"
-                 onclick="${canPick3rd ? `selectThirdPlace(${isAdmin})` : ''}">
-              ${data.thirdPlace ? formatTeam(data.thirdPlace) : (canPick3rd ? 'Pick 3rd place' : '-')}
-            </div>
-          </div>
+          ${sfLosers.length === 2
+            ? pair(sfLosers[0], sfLosers[1], data.thirdPlace, 'pickThirdSide')
+            : '<div class="third-teams">SF losers</div>'}
         </div>
       `;
 
       return col;
+    }
+
+    // Click a finalist (a semifinal winner) to crown the champion.
+    function pickFinalSide(side, isAdmin) {
+      const t = isAdmin ? actualResults : state;
+      const team = side === 'home' ? t.sf[0] : t.sf[1];
+      if (!team) return;
+      currentSelection = { round: 'champion', index: 0, isAdmin };
+      pickTeam(team);
+    }
+
+    // Click a semifinal loser to pick the 3rd-place winner.
+    function pickThirdSide(side, isAdmin) {
+      const t = isAdmin ? actualResults : state;
+      const losers = getSFLosers(t);
+      if (losers.length !== 2) return;
+      currentSelection = { round: 'thirdPlace', index: 0, isAdmin };
+      pickTeam(side === 'home' ? losers[0] : losers[1]);
     }
 
     function getSFLosers(data) {
@@ -1517,6 +1526,13 @@
       } else {
         targetState[round][index] = team;
         clearDownstream(targetState, round, index);
+      }
+
+      // Finalists are the semifinal winners — keep them in sync for scoring, and
+      // clear a champion that's no longer one of the finalists.
+      targetState.final = [targetState.sf[0] || null, targetState.sf[1] || null];
+      if (targetState.champion && !targetState.final.includes(targetState.champion)) {
+        targetState.champion = null;
       }
 
       closeModal();
