@@ -134,6 +134,10 @@ async function main() {
   if (DRY_RUN) {
     const feedR32 = matches.filter(m => m.stage === 'LAST_32');
     console.log(`DEBUG LAST_32 feed matches: ${feedR32.length}, unmapped by date: ${unmappedDates}`);
+    feedR32.forEach(m => {
+      const h = m.homeTeam?.name, a = m.awayTeam?.name;
+      if (h || a) console.log(`DEBUG R32 ${m.utcDate}: ${h || 'TBD'} vs ${a || 'TBD'}`);
+    });
   }
 
   // --- Per-round earliest kickoff (groundwork for per-match locking later) ---
