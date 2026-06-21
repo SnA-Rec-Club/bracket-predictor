@@ -62,13 +62,14 @@ function normTeam(name) {
   return n;
 }
 
-// ---- R32 bracket structure (mirror of index.html r32Structure, official WC2026
-// order). 3rd-place slots ("3ABCDF") need the FIFA allocation table — TODO. ----
-const R32 = [
-  { home: '1E', away: '3ABCDF' }, { home: '1I', away: '3CDFGH' }, { home: '2A', away: '2B' }, { home: '1F', away: '2C' },
-  { home: '2K', away: '2L' }, { home: '1H', away: '2J' }, { home: '1D', away: '3BEFIJ' }, { home: '1G', away: '3AEHIJ' },
-  { home: '1C', away: '2F' }, { home: '2E', away: '2I' }, { home: '1A', away: '3CEFHI' }, { home: '1L', away: '3EHIJK' },
-  { home: '1J', away: '2H' }, { home: '2D', away: '2G' }, { home: '1B', away: '3EFGIJ' }, { home: '1K', away: '3DEIJL' },
+// ---- R32 slot kickoff times (UTC), in the same slot order as index.html
+// r32Structure. We map each resolved feed match to its bracket slot by kickoff
+// time, so the feed does the group math AND the 3rd-place allocation for us. ----
+const R32_DATES = [
+  '2026-06-29T20:30:00Z', '2026-06-30T21:00:00Z', '2026-06-28T19:00:00Z', '2026-06-30T01:00:00Z',
+  '2026-07-02T23:00:00Z', '2026-07-02T19:00:00Z', '2026-07-01T22:00:00Z', '2026-07-01T20:00:00Z',
+  '2026-06-29T17:00:00Z', '2026-06-30T17:00:00Z', '2026-07-01T01:00:00Z', '2026-07-01T16:00:00Z',
+  '2026-07-03T22:00:00Z', '2026-07-03T18:00:00Z', '2026-07-03T03:00:00Z', '2026-07-04T00:30:00Z',
 ];
 
 // ---- HTTP --------------------------------------------------------------------
@@ -114,44 +115,25 @@ async function main() {
     }
   }
 
-  // --- Resolve R32 matchups from group standings (for narrowing + labels) ---
+  // --- Resolve R32 matchups straight from the feed -------------------------
+  // Once the feed assigns real teams to a LAST_32 match (group math + 3rd-place
+  // allocation done by FIFA/the feed), we map it to our bracket slot by kickoff
+  // time. No standings math, no allocation table.
+  const slotByDate = {};
+  R32_DATES.forEach((d, i) => { slotByDate[d] = i; });
   let r32Fixtures = Array(16).fill(null);
-  try {
-    const standData = await fdGet(`/competitions/${COMP}/standings`);
-    if (DRY_RUN) {
-      console.log('DEBUG standings count:', (standData.standings || []).length);
-      console.log('DEBUG standings[0]:', JSON.stringify((standData.standings || [])[0]));
-    }
-    const groupTables = {};   // 'A' -> [1st, 2nd, 3rd, 4th] team names
-    const groupComplete = {}; // 'A' -> true once every team has played its 3 games
-    for (const s of (standData.standings || [])) {
-      if (s.type && s.type !== 'TOTAL') continue;
-      const letter = (s.group || '').replace(/^group[ _]/i, '').trim();
-      if (!letter) continue;
-      const table = s.table || [];
-      groupTables[letter] = table.map(r => normTeam(r.team?.name));
-      groupComplete[letter] = table.length > 0 && table.every(r => (r.playedGames || 0) >= 3);
-    }
-    // Resolve "1A"/"2B" to a team — but only once the group is finished, so we
-    // never show a provisional matchup. 3rd-place slots ("3DEF") need the FIFA
-    // best-third allocation table — TODO, left null for now (app shows placeholder).
-    const resolvePos = (pos, gated = true) => {
-      const rank = pos[0], grp = pos.slice(1);
-      if (rank !== '1' && rank !== '2') return null;
-      if (gated && !groupComplete[grp]) return null;
-      return groupTables[grp]?.[rank === '1' ? 0 : 1] || null;
-    };
-    const build = (gated) => R32.map(s => {
-      const h = resolvePos(s.home, gated), a = resolvePos(s.away, gated);
-      return (h && a) ? [h, a] : null;
-    });
-    r32Fixtures = build(true);
-    if (DRY_RUN) {
-      console.log('DEBUG groups complete:', Object.entries(groupComplete).filter(([, v]) => v).map(([k]) => k).join(',') || 'none');
-      console.log('DEBUG provisional R32 (ignoring completion):', build(false).filter(Boolean).length, '/ 16');
-    }
-  } catch (e) {
-    console.warn('Standings fetch/resolve failed (R32 fixtures left empty):', e.message);
+  let unmappedDates = 0;
+  for (const m of matches) {
+    if (m.stage !== 'LAST_32') continue;
+    const slot = slotByDate[m.utcDate];
+    if (slot === undefined) { unmappedDates++; if (DRY_RUN) console.warn('Unmapped LAST_32 utcDate:', m.utcDate); continue; }
+    const home = normTeam(m.homeTeam?.name);
+    const away = normTeam(m.awayTeam?.name);
+    if (home && away) r32Fixtures[slot] = [home, away];
+  }
+  if (DRY_RUN) {
+    const feedR32 = matches.filter(m => m.stage === 'LAST_32');
+    console.log(`DEBUG LAST_32 feed matches: ${feedR32.length}, unmapped by date: ${unmappedDates}`);
   }
 
   // --- Per-round earliest kickoff (groundwork for per-match locking later) ---
