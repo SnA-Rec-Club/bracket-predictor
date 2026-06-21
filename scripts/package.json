@@ -1,0 +1,12 @@
+{
+  "name": "bracket-predictor-updater",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Hourly job that pulls World Cup results from football-data.org into Firestore",
+  "scripts": {
+    "update": "node update-results.mjs"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.7.0"
+  }
+}

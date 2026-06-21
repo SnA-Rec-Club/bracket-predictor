@@ -1,0 +1,37 @@
+name: Update results
+
+on:
+  schedule:
+    - cron: '0 * * * *'      # hourly, on the hour (UTC)
+  workflow_dispatch:          # manual run from the Actions tab
+    inputs:
+      dry_run:
+        description: 'Dry run (fetch + log only, no Firestore writes)'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        working-directory: scripts
+        run: npm install
+
+      - name: Run updater
+        working-directory: scripts
+        env:
+          FOOTBALL_DATA_TOKEN: ${{ secrets.FOOTBALL_DATA_TOKEN }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          # Scheduled runs write; manual runs default to dry-run (toggle in the UI).
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}
+        run: node update-results.mjs
