@@ -161,10 +161,11 @@ async function main() {
 
   const posMap = parseOverrides(OVERRIDES);
   const ovTeam = (pos) => ((pos[0] === '1' || pos[0] === '2') ? (posMap[pos] || null) : null);
+  // Each slot is an object { home, away } (Firestore forbids arrays of arrays).
   const r32Fixtures = R32.map((s, i) => {
     const home = (feed[i] && feed[i][0]) || ovTeam(s.home) || null;
     const away = (feed[i] && feed[i][1]) || ovTeam(s.away) || null;
-    return (home || away) ? [home, away] : null;
+    return (home || away) ? { home, away } : null;
   });
 
   if (DRY_RUN) {

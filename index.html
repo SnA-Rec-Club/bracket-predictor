@@ -1202,8 +1202,8 @@
         if (isR32) {
           const struct = r32Structure[i];
           const fx = r32Fixtures[i];
-          const fxHome = Array.isArray(fx) ? fx[0] : null;
-          const fxAway = Array.isArray(fx) ? fx[1] : null;
+          const fxHome = fx ? fx.home : null;
+          const fxAway = fx ? fx.away : null;
           // Show each side's real team once known; otherwise the placeholder
           // position. Sides resolve independently (e.g. "Germany vs 3rd ABCDF").
           const sideLabels = struct.label.split(' vs ');
@@ -1354,8 +1354,8 @@
     function selectR32Slot(index, isAdmin) {
       const struct = r32Structure[index];
       const fx = r32Fixtures[index];
-      const fxHome = Array.isArray(fx) ? fx[0] : null;
-      const fxAway = Array.isArray(fx) ? fx[1] : null;
+      const fxHome = fx ? fx.home : null;
+      const fxAway = fx ? fx.away : null;
 
       // Each side narrows to its real team once known; otherwise show every team
       // that could fill that slot. Sides resolve independently.
