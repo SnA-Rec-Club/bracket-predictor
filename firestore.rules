@@ -1,0 +1,77 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---- Submitted brackets -------------------------------------------------
+    // Doc ID is a hash of the submitter's email, so re-submitting with the same
+    // email overwrites their previous bracket (edits allowed until lock).
+    // World-readable for the leaderboard. No email stored here (see contacts).
+    // NOTE (by design): because picks are publicly listable, this "edit by
+    // email" model is not tamper-proof — true protection would require login.
+    match /picks/{pickId} {
+      allow read: if true;
+      allow create, update: if isValidBracket() && notLocked();
+      allow delete: if false;
+    }
+
+    // ---- Private contact records -------------------------------------------
+    // email <-> name, keyed by the same email hash. Not client-readable.
+    match /contacts/{contactId} {
+      allow read: if false;
+      allow create, update: if isValidContact() && notLocked();
+      allow delete: if false;
+    }
+
+    // ---- Actual tournament results -----------------------------------------
+    // World-readable for scoring; written only by the Admin SDK updater.
+    match /config/results {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // ---- Settings (lock time) ----------------------------------------------
+    // Public so the app can show/lock the UI. Only the organizer changes it
+    // (via the Firebase console). lockAt is a timestamp; after it, writes to
+    // picks/contacts are rejected.
+    match /config/settings {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // ---- Everything else ----------------------------------------------------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Writes are allowed only before the configured lock time. If no settings
+    // doc or no lockAt is set, the pool is treated as open.
+    function notLocked() {
+      return !exists(/databases/$(database)/documents/config/settings)
+        || !('lockAt' in get(/databases/$(database)/documents/config/settings).data)
+        || request.time < get(/databases/$(database)/documents/config/settings).data.lockAt;
+    }
+
+    // A submission must look exactly like a bracket: correct fields, correct
+    // sizes, and no extra junk fields (keeps bots from bloating documents).
+    function isValidBracket() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['name', 'r32', 'r16', 'qf', 'sf', 'final', 'champion', 'thirdPlace', 'submittedAt'])
+        && d.name is string && d.name.size() > 0 && d.name.size() <= 60
+        && d.r32 is list && d.r32.size() == 16
+        && d.r16 is list && d.r16.size() == 8
+        && d.qf is list && d.qf.size() == 4
+        && d.sf is list && d.sf.size() == 2
+        && d.final is list && d.final.size() == 2
+        && d.champion is string && d.champion.size() <= 40
+        && d.thirdPlace is string && d.thirdPlace.size() <= 40;
+    }
+
+    // A contact record: just name + email.
+    function isValidContact() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['name', 'email', 'submittedAt'])
+        && d.name is string && d.name.size() > 0 && d.name.size() <= 60
+        && d.email is string && d.email.size() > 0 && d.email.size() <= 120;
+    }
+  }
+}

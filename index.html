@@ -480,6 +480,33 @@
       margin-bottom: 8px;
     }
 
+    /* Read-only bracket (retrieved/viewed bracket) — not interactive */
+    .bracket.readonly { pointer-events: none; }
+
+    .find-result {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border: 1px solid #eee;
+      border-radius: 8px;
+      margin-top: 8px;
+    }
+    .find-result button { padding: 8px 14px; font-size: 13px; }
+
+    .code-box {
+      background: #f4f4f8;
+      border: 1px dashed #999;
+      border-radius: 8px;
+      padding: 10px;
+      margin: 8px 0;
+      font-family: monospace;
+      font-size: 13px;
+      word-break: break-all;
+      color: #16213e;
+    }
+
     /* Stepper controls are mobile-only; hidden on desktop */
     .stepper-controls { display: none; }
     .stepper-controls .step-btn {
@@ -566,6 +593,7 @@
   <nav>
     <a class="active" onclick="showPage('submit')">My Bracket</a>
     <a onclick="showPage('leaderboard')">Leaderboard</a>
+    <a onclick="showPage('find')">Find Bracket</a>
     <a onclick="showPage('admin')">Admin</a>
   </nav>
 
@@ -580,7 +608,12 @@
       <input type="text" id="name" placeholder="Enter your name">
       <label>Email</label>
       <input type="email" id="email" placeholder="Enter your email">
+      <p style="font-size:12px;color:#888;margin-top:8px;">Submitting again with the same email updates your bracket (until it locks).</p>
+      <button onclick="loadMyBracket()" class="btn-secondary" style="width:100%;margin-top:10px;padding:10px;font-size:14px;">↺ Load my saved bracket (to edit)</button>
+      <div id="load-msg" style="font-size:12px;text-align:center;margin-top:6px;"></div>
     </div>
+
+    <div id="lock-note" class="config-notice" style="display:none;background:#f8d7da;border-color:#dc3545;color:#721c24;"></div>
 
     <p class="instructions">
       Click slots to pick winners. R32 matchups follow the official FIFA bracket structure.<br>
@@ -642,6 +675,33 @@
         <button onclick="saveResults()">Save Results</button>
       </div>
       <div id="admin-success" class="success" style="display:none;">Results saved!</div>
+    </div>
+  </div>
+
+  <div id="find-page" class="page">
+    <div class="card">
+      <h2>🔎 Find a Bracket</h2>
+      <p style="color:#666;font-size:13px;margin-bottom:10px;">View a submitted bracket (read-only).</p>
+      <label>Bracket code</label>
+      <input type="text" id="find-code" placeholder="Paste your bracket code">
+      <button onclick="findByCode()" style="width:100%;margin-top:8px;">View by code</button>
+      <div style="text-align:center;color:#888;font-size:12px;margin:14px 0;">— or —</div>
+      <label>Name</label>
+      <input type="text" id="find-name" placeholder="Enter a name">
+      <button onclick="findByName()" class="btn-secondary" style="width:100%;margin-top:8px;">Search by name</button>
+      <div id="find-error" class="error-msg"></div>
+      <div id="find-results"></div>
+    </div>
+
+    <div id="find-view" style="display:none;">
+      <div class="card" style="max-width:900px;text-align:center;">
+        <h2 id="find-view-title"></h2>
+        <p id="find-view-sub" style="color:#666;font-size:12px;"></p>
+        <button onclick="downloadViewedBracket()" class="btn-secondary" style="padding:8px 16px;font-size:13px;margin-top:8px;">⬇ Download this bracket</button>
+      </div>
+      <div class="bracket-container">
+        <div class="bracket readonly" id="view-bracket"></div>
+      </div>
     </div>
   </div>
 
@@ -776,6 +836,11 @@
     let firebaseConfigured = false;
     let currentSelection = null;
 
+    // Live R32 fixtures resolved from actual group-stage results.
+    // Each entry is null (group not yet decided -> show all options) or
+    // [homeTeam, awayTeam] (real matchup -> narrow the picker to those two).
+    let r32Fixtures = Array(16).fill(null);
+
     // Mobile round-by-round stepper
     const STEPS = [
       { key: 'r32', name: 'Round of 32' },
@@ -816,6 +881,19 @@
       renderBracket(state, 'user-bracket', false);
       renderBracket(actualResults, 'admin-bracket', true);
       applyStep();
+
+      // Pre-fill the Find page with a previously saved code (same device).
+      let saved = null;
+      try { saved = JSON.parse(localStorage.getItem('myBracket')); } catch (_) {}
+      if (saved && saved.code) document.getElementById('find-code').value = saved.code;
+
+      // A ?bracket=<code> link opens straight to that bracket.
+      const codeParam = new URLSearchParams(location.search).get('bracket');
+      if (codeParam) {
+        document.getElementById('find-code').value = codeParam;
+        showPage('find');
+        findByCode();
+      }
     }
 
     function initFirebase() {
@@ -826,6 +904,7 @@
           firebaseConfigured = true;
           document.getElementById('config-warning').style.display = 'none';
           loadResults();
+          checkLock();
         } catch (e) {
           console.error('Firebase error:', e);
           document.getElementById('config-warning').style.display = 'block';
@@ -839,8 +918,195 @@
       document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
       document.querySelectorAll('nav a').forEach(a => a.classList.remove('active'));
       document.getElementById(page + '-page').classList.add('active');
-      event.target.classList.add('active');
+      // Highlight the matching nav link. Works whether called from a click
+      // (uses event.target) or programmatically (falls back to matching href).
+      const clicked = (typeof event !== 'undefined' && event && event.target) ? event.target : null;
+      if (clicked && clicked.tagName === 'A') {
+        clicked.classList.add('active');
+      } else {
+        document.querySelectorAll('nav a').forEach(a => {
+          if (a.getAttribute('onclick') === `showPage('${page}')`) a.classList.add('active');
+        });
+      }
       if (page === 'leaderboard') loadLeaderboard();
+    }
+
+    // ---- Bracket retrieval (view-only) -------------------------------------
+    let lastFindResults = [];
+    let lastViewed = null;
+    let lastSubmitted = null;
+    let bracketsLocked = false;
+
+    function bracketLink(code) {
+      return `${location.origin}${location.pathname}?bracket=${code}`;
+    }
+
+    // SHA-256 hex of the normalized email — used as the bracket's document ID
+    // so the same email always maps to the same (overwritable) bracket.
+    async function emailHash(email) {
+      const norm = (email || '').trim().toLowerCase();
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(norm));
+      return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    // ---- Download a copy of a bracket (proof in case of disputes) -----------
+    function bracketToText(d) {
+      const list = (arr) => (arr || []).map(t => '  - ' + (t || '—')).join('\n');
+      const when = d.submittedAt
+        ? (d.submittedAt.toDate ? d.submittedAt.toDate().toLocaleString() : new Date(d.submittedAt).toLocaleString())
+        : '';
+      let s = 'World Cup 2026 — Bracket Prediction\n' + '='.repeat(40) + '\n';
+      s += 'Name: ' + (d.name || '') + '\n';
+      if (d.email) s += 'Email: ' + d.email + '\n';
+      if (d.code) s += 'Bracket code: ' + d.code + '\n';
+      if (when) s += 'Submitted: ' + when + '\n';
+      s += '\nChampion: ' + (d.champion || '—') + '\n';
+      s += '3rd place: ' + (d.thirdPlace || '—') + '\n';
+      s += '\nFinalists:\n' + list(d.final);
+      s += '\n\nSemifinal winners:\n' + list(d.sf);
+      s += '\n\nQuarterfinal winners:\n' + list(d.qf);
+      s += '\n\nRound of 16 winners:\n' + list(d.r16);
+      s += '\n\nRound of 32 winners:\n' + list(d.r32) + '\n';
+      return s;
+    }
+
+    function triggerDownload(filename, text) {
+      const blob = new Blob([text], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function fileSafe(name) {
+      return (name || 'bracket').replace(/[^a-z0-9]+/gi, '_');
+    }
+
+    function downloadMyBracket() {
+      if (lastSubmitted) triggerDownload(`wc2026_bracket_${fileSafe(lastSubmitted.name)}.txt`, bracketToText(lastSubmitted));
+    }
+
+    function downloadViewedBracket() {
+      if (lastViewed) triggerDownload(`wc2026_bracket_${fileSafe(lastViewed.name)}.txt`, bracketToText(lastViewed));
+    }
+
+    // ---- Load an existing bracket into the editor (to edit & re-submit) -----
+    async function loadMyBracket() {
+      const email = document.getElementById('email').value.trim();
+      const msg = document.getElementById('load-msg');
+      msg.style.color = '#888';
+      if (!email) { msg.textContent = 'Enter your email above first.'; return; }
+      if (!firebaseConfigured) { msg.textContent = 'Firebase not configured.'; return; }
+      msg.textContent = 'Loading…';
+      try {
+        const code = await emailHash(email);
+        const doc = await db.collection('picks').doc(code).get();
+        if (!doc.exists) { msg.textContent = 'No saved bracket found for that email.'; return; }
+        const d = doc.data();
+        state.r32 = (d.r32 || Array(16).fill(null)).slice();
+        state.r16 = (d.r16 || Array(8).fill(null)).slice();
+        state.qf = (d.qf || Array(4).fill(null)).slice();
+        state.sf = (d.sf || Array(2).fill(null)).slice();
+        state.final = (d.final || Array(2).fill(null)).slice();
+        state.champion = d.champion || null;
+        state.thirdPlace = d.thirdPlace || null;
+        if (d.name) document.getElementById('name').value = d.name;
+        renderBracket(state, 'user-bracket', false);
+        applyStep();
+        msg.style.color = '#2a8';
+        msg.textContent = 'Loaded! Edit your picks and submit again to update.';
+      } catch (e) {
+        console.error(e);
+        msg.textContent = 'Could not load. Try again.';
+      }
+    }
+
+    // ---- Lock check: disable submitting once the lock time has passed -------
+    async function checkLock() {
+      if (!firebaseConfigured) return;
+      try {
+        const doc = await db.collection('config').doc('settings').get();
+        const lockAt = (doc.exists && doc.data().lockAt && doc.data().lockAt.toDate) ? doc.data().lockAt.toDate() : null;
+        if (lockAt && new Date() >= lockAt) {
+          bracketsLocked = true;
+          const btn = document.getElementById('submitBtn');
+          btn.disabled = true;
+          btn.textContent = 'Brackets Locked';
+          const note = document.getElementById('lock-note');
+          note.textContent = `🔒 Brackets locked since ${lockAt.toLocaleString()}. Submissions are closed.`;
+          note.style.display = 'block';
+        }
+      } catch (e) { console.warn('Lock check failed:', e); }
+    }
+
+    async function findByCode() {
+      const code = document.getElementById('find-code').value.trim();
+      const err = document.getElementById('find-error');
+      err.textContent = '';
+      document.getElementById('find-results').innerHTML = '';
+      if (!code) { err.textContent = 'Enter a bracket code.'; return; }
+      if (!firebaseConfigured) { err.textContent = 'Firebase not configured.'; return; }
+      try {
+        const doc = await db.collection('picks').doc(code).get();
+        if (!doc.exists) { err.textContent = 'No bracket found for that code.'; return; }
+        showRetrievedBracket(doc.data(), doc.id);
+      } catch (e) {
+        console.error(e);
+        err.textContent = 'Could not load that bracket.';
+      }
+    }
+
+    async function findByName() {
+      const name = document.getElementById('find-name').value.trim();
+      const err = document.getElementById('find-error');
+      const results = document.getElementById('find-results');
+      err.textContent = '';
+      results.innerHTML = '';
+      document.getElementById('find-view').style.display = 'none';
+      if (!name) { err.textContent = 'Enter a name.'; return; }
+      if (!firebaseConfigured) { err.textContent = 'Firebase not configured.'; return; }
+      try {
+        const snap = await db.collection('picks').where('name', '==', name).get();
+        if (snap.empty) { err.textContent = `No brackets found for "${name}".`; return; }
+        lastFindResults = [];
+        snap.forEach(d => lastFindResults.push({ id: d.id, ...d.data() }));
+        let html = '';
+        lastFindResults.forEach((p, i) => {
+          const when = (p.submittedAt && p.submittedAt.toDate) ? p.submittedAt.toDate().toLocaleString() : '';
+          html += `<div class="find-result">
+            <div>${p.name}<br><span style="font-size:11px;color:#888;">${when}</span></div>
+            <button onclick="viewFindResult(${i})">View</button>
+          </div>`;
+        });
+        results.innerHTML = html;
+      } catch (e) {
+        console.error(e);
+        err.textContent = 'Search failed.';
+      }
+    }
+
+    function viewFindResult(i) {
+      const p = lastFindResults[i];
+      if (p) showRetrievedBracket(p, p.id);
+    }
+
+    function showRetrievedBracket(data, code) {
+      lastViewed = Object.assign({}, data, code ? { code: code } : {});
+      const view = document.getElementById('find-view');
+      const when = (data.submittedAt && data.submittedAt.toDate) ? data.submittedAt.toDate().toLocaleString() : '';
+      document.getElementById('find-view-title').textContent =
+        `${data.name || 'Bracket'} — Champion: ${data.champion ? formatTeam(data.champion) : '—'}`;
+      document.getElementById('find-view-sub').textContent = when ? `Submitted ${when}` : '';
+      renderBracket(data, 'view-bracket', false);
+      // Make the view truly inert: strip the pick handlers so nothing can fire
+      // (pointer-events:none already blocks real clicks; this covers the rest).
+      document.querySelectorAll('#view-bracket [onclick]').forEach(el => el.removeAttribute('onclick'));
+      view.style.display = 'block';
+      view.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     function renderBracket(data, containerId, isAdmin) {
@@ -904,8 +1170,15 @@
 
         if (isR32) {
           const struct = r32Structure[i];
+          const fx = r32Fixtures[i];
+          const resolved = Array.isArray(fx) && fx[0] && fx[1];
+          // Once group results finalize the matchup, show the real teams
+          // instead of the placeholder positions ("1D vs 2E").
+          const label = resolved
+            ? `${getFlag(fx[0])} ${fx[0]} <span style="color:#999">v</span> ${getFlag(fx[1])} ${fx[1]}`
+            : struct.label;
           matchup.innerHTML = `
-            <div class="matchup-label">${struct.label}</div>
+            <div class="matchup-label">${label}</div>
             <div class="team-slot ${data.r32[i] ? 'selected' : 'empty'}" onclick="selectR32Slot(${i}, ${isAdmin})">
               ${data.r32[i] ? formatTeam(data.r32[i]) : 'Pick winner'}
             </div>
@@ -1041,13 +1314,20 @@
 
     function selectR32Slot(index, isAdmin) {
       const struct = r32Structure[index];
-      const homeTeams = getTeamsForPosition(struct.home);
-      const awayTeams = getTeamsForPosition(struct.away);
+      const fixture = r32Fixtures[index];
+      const resolved = Array.isArray(fixture) && fixture[0] && fixture[1];
+
+      // If live group-stage data has resolved this matchup, show only the two
+      // real teams. Otherwise fall back to every team that could fill each slot.
+      const homeTeams = resolved ? [fixture[0]] : getTeamsForPosition(struct.home);
+      const awayTeams = resolved ? [fixture[1]] : getTeamsForPosition(struct.away);
 
       currentSelection = { round: 'r32', index, isAdmin };
 
       const title = `Match ${struct.match}: ${struct.label}`;
-      const subtitle = `${getPositionLabel(struct.home)} vs ${getPositionLabel(struct.away)}`;
+      const subtitle = resolved
+        ? `${formatTeam(fixture[0])} vs ${formatTeam(fixture[1])}`
+        : `${getPositionLabel(struct.home)} vs ${getPositionLabel(struct.away)}`;
 
       openR32Modal(title, subtitle, homeTeams, awayTeams, struct.home, struct.away);
     }
@@ -1236,13 +1516,25 @@
         return;
       }
 
+      if (bracketsLocked) {
+        document.getElementById('submit-error').textContent = 'Brackets are locked — submissions are closed.';
+        return;
+      }
+
       try {
         document.getElementById('submitBtn').disabled = true;
         document.getElementById('submitBtn').textContent = 'Submitting...';
 
-        await db.collection('picks').add({
-          name: document.getElementById('name').value.trim(),
-          email: document.getElementById('email').value.trim(),
+        const name = document.getElementById('name').value.trim();
+        const email = document.getElementById('email').value.trim();
+
+        // Identify the bracket by a hash of the email, so re-submitting with the
+        // same email overwrites the previous version (edits allowed until lock).
+        const code = await emailHash(email);
+
+        // Public bracket: name + picks only (no email — picks are world-readable).
+        await db.collection('picks').doc(code).set({
+          name: name,
           r32: state.r32,
           r16: state.r16,
           qf: state.qf,
@@ -1253,11 +1545,43 @@
           submittedAt: firebase.firestore.FieldValue.serverTimestamp()
         });
 
-        document.getElementById('submit-success').style.display = 'block';
-        document.getElementById('submitBtn').textContent = 'Submitted!';
+        // Private contact record (email <-> name), keyed by the same hash so it
+        // overwrites too. Not publicly readable.
+        try {
+          await db.collection('contacts').doc(code).set({
+            name: name,
+            email: email,
+            submittedAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+        } catch (e2) {
+          console.warn('Contact record failed (bracket still saved):', e2);
+        }
+
+        // Remember what was submitted so the user can download a copy as proof.
+        lastSubmitted = {
+          name: name, email: email, code: code,
+          r32: state.r32.slice(), r16: state.r16.slice(), qf: state.qf.slice(),
+          sf: state.sf.slice(), final: state.final.slice(),
+          champion: state.champion, thirdPlace: state.thirdPlace,
+          submittedAt: new Date().toISOString()
+        };
+        try { localStorage.setItem('myBracket', JSON.stringify({ code: code, name: name })); } catch (_) {}
+
+        const successEl = document.getElementById('submit-success');
+        successEl.innerHTML = `✓ Bracket saved! Re-submit with the same email to update it (until brackets lock).<br><br>
+          Your bracket code:
+          <div class="code-box">${code}</div>
+          <a href="${bracketLink(code)}" style="color:#fff;text-decoration:underline;font-size:13px;">🔗 Your personal bracket link</a>
+          <div style="margin-top:12px;"><button onclick="downloadMyBracket()" class="btn-secondary" style="padding:10px 18px;font-size:14px;">⬇ Download my bracket</button></div>`;
+        successEl.style.display = 'block';
+        document.getElementById('submitBtn').textContent = 'Saved!';
+        document.getElementById('submitBtn').disabled = false;
       } catch (e) {
         console.error(e);
-        document.getElementById('submit-error').textContent = 'Error. Try again.';
+        const msg = (e && e.code === 'permission-denied')
+          ? 'Brackets are locked — submissions are closed.'
+          : 'Error. Try again.';
+        document.getElementById('submit-error').textContent = msg;
         document.getElementById('submitBtn').disabled = false;
         document.getElementById('submitBtn').textContent = 'Submit Bracket';
       }
@@ -1343,8 +1667,13 @@
           actualResults.final = d.final || Array(2).fill(null);
           actualResults.champion = d.champion || null;
           actualResults.thirdPlace = d.thirdPlace || null;
+          // Live R32 matchups resolved from actual group results (optional).
+          r32Fixtures = Array.isArray(d.r32Fixtures) ? d.r32Fixtures : Array(16).fill(null);
         }
         renderBracket(actualResults, 'admin-bracket', true);
+        // Re-render the user bracket too so resolved R32 matchups show real teams.
+        renderBracket(state, 'user-bracket', false);
+        applyStep();
       } catch (e) { console.error(e); }
     }
 
