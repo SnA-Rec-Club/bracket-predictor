@@ -30,10 +30,25 @@ The exact `stage` strings and team-name spellings from the feed need a one-time 
 
 Share the log and we fix any mismatches, then real (writing) runs happen automatically every hour.
 
+## Manual R32 overrides (early "clinched" matchups)
+
+The feed doesn't fill in knockout teams until the group stage officially ends
+(~June 27). To show confirmed group winners earlier (like Google/Wikipedia),
+trigger the workflow by hand with the confirmed positions:
+
+1. GitHub → **Actions** → **Update results** → **Run workflow**
+2. Leave **Dry run** = `false`
+3. In **r32_overrides**, enter confirmed group winners/runners-up, comma-separated:
+   `1E=Germany, 1A=Mexico, 1D=USA, 2A=Switzerland`
+   - `1E` = winner of Group E, `2A` = runner-up of Group A (either `1E` or `E1` works)
+   - Only 1st/2nd positions — 3rd-place opponents resolve from the feed at group-end
+4. Run it. Those sides fill in (partial matchups like "Germany vs 3rd ABCDF").
+
+Provide the **full cumulative list** of confirmed positions each time you run.
+Scheduled runs won't wipe your overrides; once the feed resolves a slot for real,
+it takes over automatically.
+
 ## Known TODOs
 
-- **Best-third-place allocation:** the 7 R32 slots with a "3rd ABC"-type opponent
-  stay unresolved until the FIFA allocation table is added (the other 9 resolve
-  from standings). Calibrate against the live feed first.
 - **Per-match locking:** kickoff times are collected per round now; per-match
   lock enforcement (rules + badges) is a separate step.

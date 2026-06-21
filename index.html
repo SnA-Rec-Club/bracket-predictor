@@ -1202,12 +1202,14 @@
         if (isR32) {
           const struct = r32Structure[i];
           const fx = r32Fixtures[i];
-          const resolved = Array.isArray(fx) && fx[0] && fx[1];
-          // Once group results finalize the matchup, show the real teams
-          // instead of the placeholder positions ("1D vs 2E").
-          const label = resolved
-            ? `${getFlag(fx[0])} ${fx[0]} <span style="color:#999">v</span> ${getFlag(fx[1])} ${fx[1]}`
-            : struct.label;
+          const fxHome = Array.isArray(fx) ? fx[0] : null;
+          const fxAway = Array.isArray(fx) ? fx[1] : null;
+          // Show each side's real team once known; otherwise the placeholder
+          // position. Sides resolve independently (e.g. "Germany vs 3rd ABCDF").
+          const sideLabels = struct.label.split(' vs ');
+          const hLbl = fxHome ? `${getFlag(fxHome)} ${fxHome}` : sideLabels[0];
+          const aLbl = fxAway ? `${getFlag(fxAway)} ${fxAway}` : sideLabels[1];
+          const label = `${hLbl} <span style="color:#999">v</span> ${aLbl}`;
           const time = fmtMatchTime(getMatchDate('r32', i));
           matchup.innerHTML = `
             <div class="matchup-label">${label}</div>
@@ -1351,22 +1353,22 @@
 
     function selectR32Slot(index, isAdmin) {
       const struct = r32Structure[index];
-      const fixture = r32Fixtures[index];
-      const resolved = Array.isArray(fixture) && fixture[0] && fixture[1];
+      const fx = r32Fixtures[index];
+      const fxHome = Array.isArray(fx) ? fx[0] : null;
+      const fxAway = Array.isArray(fx) ? fx[1] : null;
 
-      // If live group-stage data has resolved this matchup, show only the two
-      // real teams. Otherwise fall back to every team that could fill each slot.
-      const homeTeams = resolved ? [fixture[0]] : getTeamsForPosition(struct.home);
-      const awayTeams = resolved ? [fixture[1]] : getTeamsForPosition(struct.away);
+      // Each side narrows to its real team once known; otherwise show every team
+      // that could fill that slot. Sides resolve independently.
+      const homeTeams = fxHome ? [fxHome] : getTeamsForPosition(struct.home);
+      const awayTeams = fxAway ? [fxAway] : getTeamsForPosition(struct.away);
 
       currentSelection = { round: 'r32', index, isAdmin };
 
       const title = `Match ${struct.match}: ${struct.label}`;
-      const subtitle = resolved
-        ? `${formatTeam(fixture[0])} vs ${formatTeam(fixture[1])}`
-        : `${getPositionLabel(struct.home)} vs ${getPositionLabel(struct.away)}`;
+      const subHome = fxHome ? formatTeam(fxHome) : getPositionLabel(struct.home);
+      const subAway = fxAway ? formatTeam(fxAway) : getPositionLabel(struct.away);
 
-      openR32Modal(title, subtitle, homeTeams, awayTeams, struct.home, struct.away);
+      openR32Modal(title, `${subHome} vs ${subAway}`, homeTeams, awayTeams, struct.home, struct.away);
     }
 
     function openR32Modal(title, subtitle, homeTeams, awayTeams, homePos, awayPos) {

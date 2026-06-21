@@ -17,6 +17,7 @@ import admin from 'firebase-admin';
 const TOKEN = process.env.FOOTBALL_DATA_TOKEN;
 const SA = process.env.FIREBASE_SERVICE_ACCOUNT;
 const DRY_RUN = process.env.DRY_RUN === 'true';
+const OVERRIDES = process.env.OVERRIDES || ''; // manual R32 overrides, e.g. "1E=Germany, 1A=Mexico"
 const API = 'https://api.football-data.org/v4';
 const COMP = 'WC'; // FIFA World Cup competition code
 
@@ -62,15 +63,42 @@ function normTeam(name) {
   return n;
 }
 
-// ---- R32 slot kickoff times (UTC), in the same slot order as index.html
-// r32Structure. We map each resolved feed match to its bracket slot by kickoff
-// time, so the feed does the group math AND the 3rd-place allocation for us. ----
-const R32_DATES = [
-  '2026-06-29T20:30:00Z', '2026-06-30T21:00:00Z', '2026-06-28T19:00:00Z', '2026-06-30T01:00:00Z',
-  '2026-07-02T23:00:00Z', '2026-07-02T19:00:00Z', '2026-07-02T00:00:00Z', '2026-07-01T20:00:00Z',
-  '2026-06-29T17:00:00Z', '2026-06-30T17:00:00Z', '2026-07-01T01:00:00Z', '2026-07-01T16:00:00Z',
-  '2026-07-03T22:00:00Z', '2026-07-03T18:00:00Z', '2026-07-03T03:00:00Z', '2026-07-04T01:30:00Z',
+// ---- R32 bracket slots (positions + kickoff time), in index.html slot order.
+// We map each resolved feed match to its slot by kickoff time; positions are
+// used for the manual override path. ----
+const R32 = [
+  { home: '1E', away: '3ABCDF', date: '2026-06-29T20:30:00Z' },
+  { home: '1I', away: '3CDFGH', date: '2026-06-30T21:00:00Z' },
+  { home: '2A', away: '2B',     date: '2026-06-28T19:00:00Z' },
+  { home: '1F', away: '2C',     date: '2026-06-30T01:00:00Z' },
+  { home: '2K', away: '2L',     date: '2026-07-02T23:00:00Z' },
+  { home: '1H', away: '2J',     date: '2026-07-02T19:00:00Z' },
+  { home: '1D', away: '3BEFIJ', date: '2026-07-02T00:00:00Z' },
+  { home: '1G', away: '3AEHIJ', date: '2026-07-01T20:00:00Z' },
+  { home: '1C', away: '2F',     date: '2026-06-29T17:00:00Z' },
+  { home: '2E', away: '2I',     date: '2026-06-30T17:00:00Z' },
+  { home: '1A', away: '3CEFHI', date: '2026-07-01T01:00:00Z' },
+  { home: '1L', away: '3EHIJK', date: '2026-07-01T16:00:00Z' },
+  { home: '1J', away: '2H',     date: '2026-07-03T22:00:00Z' },
+  { home: '2D', away: '2G',     date: '2026-07-03T18:00:00Z' },
+  { home: '1B', away: '3EFGIJ', date: '2026-07-03T03:00:00Z' },
+  { home: '1K', away: '3DEIJL', date: '2026-07-04T01:30:00Z' },
 ];
+
+// Parse manual overrides like "1E=Germany, 1A=Mexico, D1=USA" into { '1E': 'Germany', ... }.
+// Accepts either "1E" or "E1" order. Only group winners/runners-up (1/2), not 3rd-place.
+function parseOverrides(str) {
+  const map = {};
+  (str || '').split(',').map(s => s.trim()).filter(Boolean).forEach(pair => {
+    const eq = pair.indexOf('=');
+    if (eq < 0) return;
+    let pos = pair.slice(0, eq).trim().toUpperCase();
+    const team = normTeam(pair.slice(eq + 1).trim());
+    if (/^[A-L][12]$/.test(pos)) pos = pos[1] + pos[0]; // "E1" -> "1E"
+    if (/^[12][A-L]$/.test(pos) && team) map[pos] = team;
+  });
+  return map;
+}
 
 // ---- HTTP --------------------------------------------------------------------
 async function fdGet(path) {
@@ -115,29 +143,33 @@ async function main() {
     }
   }
 
-  // --- Resolve R32 matchups straight from the feed -------------------------
-  // Once the feed assigns real teams to a LAST_32 match (group math + 3rd-place
-  // allocation done by FIFA/the feed), we map it to our bracket slot by kickoff
-  // time. No standings math, no allocation table.
+  // --- Resolve R32 matchups: feed first, manual overrides fill the gaps -----
+  // The feed assigns real teams to LAST_32 matches (group math + 3rd-place
+  // allocation) once official; we map each to its slot by kickoff time. Until
+  // then, a manual override (confirmed group winners) fills in known sides,
+  // producing partial matchups like ["Germany", null].
   const slotByDate = {};
-  R32_DATES.forEach((d, i) => { slotByDate[d] = i; });
-  let r32Fixtures = Array(16).fill(null);
+  R32.forEach((s, i) => { slotByDate[s.date] = i; });
+  const feed = Array(16).fill(null);
   let unmappedDates = 0;
   for (const m of matches) {
     if (m.stage !== 'LAST_32') continue;
     const slot = slotByDate[m.utcDate];
     if (slot === undefined) { unmappedDates++; if (DRY_RUN) console.warn('Unmapped LAST_32 utcDate:', m.utcDate); continue; }
-    const home = normTeam(m.homeTeam?.name);
-    const away = normTeam(m.awayTeam?.name);
-    if (home && away) r32Fixtures[slot] = [home, away];
+    feed[slot] = [normTeam(m.homeTeam?.name), normTeam(m.awayTeam?.name)];
   }
+
+  const posMap = parseOverrides(OVERRIDES);
+  const ovTeam = (pos) => ((pos[0] === '1' || pos[0] === '2') ? (posMap[pos] || null) : null);
+  const r32Fixtures = R32.map((s, i) => {
+    const home = (feed[i] && feed[i][0]) || ovTeam(s.home) || null;
+    const away = (feed[i] && feed[i][1]) || ovTeam(s.away) || null;
+    return (home || away) ? [home, away] : null;
+  });
+
   if (DRY_RUN) {
-    const feedR32 = matches.filter(m => m.stage === 'LAST_32');
-    console.log(`DEBUG LAST_32 feed matches: ${feedR32.length}, unmapped by date: ${unmappedDates}`);
-    feedR32.forEach(m => {
-      const h = m.homeTeam?.name, a = m.awayTeam?.name;
-      if (h || a) console.log(`DEBUG R32 ${m.utcDate}: ${h || 'TBD'} vs ${a || 'TBD'}`);
-    });
+    console.log(`DEBUG LAST_32 feed matches: ${matches.filter(m => m.stage === 'LAST_32').length}, unmapped by date: ${unmappedDates}`);
+    console.log('DEBUG override posMap:', JSON.stringify(posMap));
   }
 
   // --- Per-round earliest kickoff (groundwork for per-match locking later) ---
@@ -174,12 +206,15 @@ async function main() {
   const db = admin.firestore();
   const FieldValue = admin.firestore.FieldValue;
 
-  await db.collection('config').doc('results').set({
+  const payload = {
     r32: results.r32, r16: results.r16, qf: results.qf, sf: results.sf,
     final: results.final, champion: results.champion, thirdPlace: results.thirdPlace,
-    r32Fixtures,
     updatedAt: FieldValue.serverTimestamp(),
-  }, { merge: true });
+  };
+  // Only write r32Fixtures when we actually have some — otherwise an empty
+  // scheduled run would wipe matchups set by a manual override.
+  if (r32Fixtures.some(Boolean)) payload.r32Fixtures = r32Fixtures;
+  await db.collection('config').doc('results').set(payload, { merge: true });
 
   await db.collection('config').doc('settings').set({
     roundKickoffs,

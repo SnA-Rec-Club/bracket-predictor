@@ -8,7 +8,11 @@ on:
       dry_run:
         description: 'Dry run (fetch + log only, no Firestore writes)'
         type: boolean
-        default: true
+        default: false
+      r32_overrides:
+        description: 'Manual R32 group-winner overrides, e.g. "1E=Germany, 1A=Mexico, 1D=USA"'
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -32,6 +36,6 @@ jobs:
         env:
           FOOTBALL_DATA_TOKEN: ${{ secrets.FOOTBALL_DATA_TOKEN }}
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          # Scheduled runs write; manual runs default to dry-run (toggle in the UI).
+          OVERRIDES: ${{ inputs.r32_overrides }}
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}
         run: node update-results.mjs
