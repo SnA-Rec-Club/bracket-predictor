@@ -67,9 +67,9 @@ function normTeam(name) {
 // time, so the feed does the group math AND the 3rd-place allocation for us. ----
 const R32_DATES = [
   '2026-06-29T20:30:00Z', '2026-06-30T21:00:00Z', '2026-06-28T19:00:00Z', '2026-06-30T01:00:00Z',
-  '2026-07-02T23:00:00Z', '2026-07-02T19:00:00Z', '2026-07-01T22:00:00Z', '2026-07-01T20:00:00Z',
+  '2026-07-02T23:00:00Z', '2026-07-02T19:00:00Z', '2026-07-02T00:00:00Z', '2026-07-01T20:00:00Z',
   '2026-06-29T17:00:00Z', '2026-06-30T17:00:00Z', '2026-07-01T01:00:00Z', '2026-07-01T16:00:00Z',
-  '2026-07-03T22:00:00Z', '2026-07-03T18:00:00Z', '2026-07-03T03:00:00Z', '2026-07-04T00:30:00Z',
+  '2026-07-03T22:00:00Z', '2026-07-03T18:00:00Z', '2026-07-03T03:00:00Z', '2026-07-04T01:30:00Z',
 ];
 
 // ---- HTTP --------------------------------------------------------------------
@@ -133,11 +133,7 @@ async function main() {
   }
   if (DRY_RUN) {
     const feedR32 = matches.filter(m => m.stage === 'LAST_32');
-    const feedDates = feedR32.map(m => m.utcDate).sort();
-    const matched = new Set(feedDates);
     console.log(`DEBUG LAST_32 feed matches: ${feedR32.length}, unmapped by date: ${unmappedDates}`);
-    console.log('DEBUG feed LAST_32 dates:', JSON.stringify(feedDates));
-    console.log('DEBUG my slot dates with no feed match:', JSON.stringify(R32_DATES.filter(d => !matched.has(d))));
   }
 
   // --- Per-round earliest kickoff (groundwork for per-match locking later) ---
