@@ -62,12 +62,13 @@ function normTeam(name) {
   return n;
 }
 
-// ---- R32 bracket structure (mirror of index.html r32Structure) --------------
+// ---- R32 bracket structure (mirror of index.html r32Structure, official WC2026
+// order). 3rd-place slots ("3ABCDF") need the FIFA allocation table — TODO. ----
 const R32 = [
-  { home: '1A', away: '2B' }, { home: '1C', away: '3DEF' }, { home: '1E', away: '2F' }, { home: '1G', away: '3HIJ' },
-  { home: '1I', away: '2J' }, { home: '1K', away: '3ABC' }, { home: '2A', away: '2C' }, { home: '1B', away: '3GHI' },
-  { home: '1D', away: '2E' }, { home: '1F', away: '3JKL' }, { home: '1H', away: '2G' }, { home: '1J', away: '3DEF' },
-  { home: '2I', away: '2K' }, { home: '1L', away: '3ABC' }, { home: '2D', away: '2F' }, { home: '2H', away: '2L' },
+  { home: '1E', away: '3ABCDF' }, { home: '1I', away: '3CDFGH' }, { home: '2A', away: '2B' }, { home: '1F', away: '2C' },
+  { home: '2K', away: '2L' }, { home: '1H', away: '2J' }, { home: '1D', away: '3BEFIJ' }, { home: '1G', away: '3AEHIJ' },
+  { home: '1C', away: '2F' }, { home: '2E', away: '2I' }, { home: '1A', away: '3CEFHI' }, { home: '1L', away: '3EHIJK' },
+  { home: '1J', away: '2H' }, { home: '2D', away: '2G' }, { home: '1B', away: '3EFGIJ' }, { home: '1K', away: '3DEIJL' },
 ];
 
 // ---- HTTP --------------------------------------------------------------------

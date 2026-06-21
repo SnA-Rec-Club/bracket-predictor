@@ -126,6 +126,14 @@
       margin-bottom: 1px;
     }
 
+    .match-time {
+      font-size: 8px;
+      color: #e9a0ae;
+      text-align: center;
+      margin-bottom: 2px;
+      white-space: nowrap;
+    }
+
     .team-slot {
       background: rgba(255,255,255,0.1);
       border: 2px solid rgba(255,255,255,0.2);
@@ -576,6 +584,7 @@
         white-space: normal;
       }
       .matchup-label { font-size: 11px; }
+      .match-time { font-size: 11px; }
 
       .champion-display { padding: 10px 0; }
       .champion-slot { width: 100%; min-width: 0; font-size: 15px; padding: 14px; }
@@ -760,32 +769,54 @@
       L: ["England", "Croatia", "Ghana", "Panama"]
     };
 
-    // R32 Bracket Structure (official FIFA pairings)
-    // Left bracket (top 8)
+    // Official WC2026 R32 bracket. Slots are ordered so the app's consecutive
+    // pairing reproduces the real tree (e.g. R16 m89 = winners of R32 m74 & m77).
+    // `date` is the scheduled kickoff in UTC; shown to users in their local time.
+    // Left half (slots 0-7) → semifinal 1; right half (8-15) → semifinal 2.
     const r32Left = [
-      { match: 49, home: "1A", away: "2B", label: "1A vs 2B" },
-      { match: 50, home: "1C", away: "3DEF", label: "1C vs 3rd DEF" },
-      { match: 51, home: "1E", away: "2F", label: "1E vs 2F" },
-      { match: 52, home: "1G", away: "3HIJ", label: "1G vs 3rd HIJ" },
-      { match: 53, home: "1I", away: "2J", label: "1I vs 2J" },
-      { match: 54, home: "1K", away: "3ABC", label: "1K vs 3rd ABC" },
-      { match: 55, home: "2A", away: "2C", label: "2A vs 2C" },
-      { match: 56, home: "1B", away: "3GHI", label: "1B vs 3rd GHI" }
+      { match: 74, home: "1E", away: "3ABCDF", label: "1E vs 3rd ABCDF", date: "2026-06-29T20:30:00Z" },
+      { match: 77, home: "1I", away: "3CDFGH", label: "1I vs 3rd CDFGH", date: "2026-06-30T21:00:00Z" },
+      { match: 73, home: "2A", away: "2B",     label: "2A vs 2B",        date: "2026-06-28T19:00:00Z" },
+      { match: 75, home: "1F", away: "2C",     label: "1F vs 2C",        date: "2026-06-30T01:00:00Z" },
+      { match: 83, home: "2K", away: "2L",     label: "2K vs 2L",        date: "2026-07-02T23:00:00Z" },
+      { match: 84, home: "1H", away: "2J",     label: "1H vs 2J",        date: "2026-07-02T19:00:00Z" },
+      { match: 81, home: "1D", away: "3BEFIJ", label: "1D vs 3rd BEFIJ", date: "2026-07-01T22:00:00Z" },
+      { match: 82, home: "1G", away: "3AEHIJ", label: "1G vs 3rd AEHIJ", date: "2026-07-01T20:00:00Z" }
     ];
 
-    // Right bracket (bottom 8)
     const r32Right = [
-      { match: 57, home: "1D", away: "2E", label: "1D vs 2E" },
-      { match: 58, home: "1F", away: "3JKL", label: "1F vs 3rd JKL" },
-      { match: 59, home: "1H", away: "2G", label: "1H vs 2G" },
-      { match: 60, home: "1J", away: "3DEF", label: "1J vs 3rd DEF" },
-      { match: 61, home: "2I", away: "2K", label: "2I vs 2K" },
-      { match: 62, home: "1L", away: "3ABC", label: "1L vs 3rd ABC" },
-      { match: 63, home: "2D", away: "2F", label: "2D vs 2F" },
-      { match: 64, home: "2H", away: "2L", label: "2H vs 2L" }
+      { match: 76, home: "1C", away: "2F",     label: "1C vs 2F",        date: "2026-06-29T17:00:00Z" },
+      { match: 78, home: "2E", away: "2I",     label: "2E vs 2I",        date: "2026-06-30T17:00:00Z" },
+      { match: 79, home: "1A", away: "3CEFHI", label: "1A vs 3rd CEFHI", date: "2026-07-01T01:00:00Z" },
+      { match: 80, home: "1L", away: "3EHIJK", label: "1L vs 3rd EHIJK", date: "2026-07-01T16:00:00Z" },
+      { match: 86, home: "1J", away: "2H",     label: "1J vs 2H",        date: "2026-07-03T22:00:00Z" },
+      { match: 88, home: "2D", away: "2G",     label: "2D vs 2G",        date: "2026-07-03T18:00:00Z" },
+      { match: 85, home: "1B", away: "3EFGIJ", label: "1B vs 3rd EFGIJ", date: "2026-07-03T03:00:00Z" },
+      { match: 87, home: "1K", away: "3DEIJL", label: "1K vs 3rd DEIJL", date: "2026-07-04T00:30:00Z" }
     ];
 
     const r32Structure = [...r32Left, ...r32Right];
+
+    // Kickoff times (UTC) for the later rounds, in app slot order.
+    const schedule = {
+      r16:   ["2026-07-04T21:00:00Z","2026-07-04T17:00:00Z","2026-07-06T18:00:00Z","2026-07-06T22:00:00Z","2026-07-05T20:00:00Z","2026-07-05T22:00:00Z","2026-07-07T16:00:00Z","2026-07-07T20:00:00Z"],
+      qf:    ["2026-07-09T20:00:00Z","2026-07-10T19:00:00Z","2026-07-11T21:00:00Z","2026-07-12T01:00:00Z"],
+      sf:    ["2026-07-14T18:00:00Z","2026-07-15T19:00:00Z"],
+      final: ["2026-07-19T19:00:00Z"],
+      third: ["2026-07-18T21:00:00Z"]
+    };
+
+    function getMatchDate(round, i) {
+      if (round === 'r32') return r32Structure[i] && r32Structure[i].date;
+      return schedule[round] && schedule[round][i];
+    }
+
+    function fmtMatchTime(iso) {
+      if (!iso) return '';
+      try {
+        return new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+      } catch (_) { return ''; }
+    }
 
     // Get teams for a position like "1A", "2B", "3ABC"
     function getTeamsForPosition(pos) {
@@ -1177,8 +1208,10 @@
           const label = resolved
             ? `${getFlag(fx[0])} ${fx[0]} <span style="color:#999">v</span> ${getFlag(fx[1])} ${fx[1]}`
             : struct.label;
+          const time = fmtMatchTime(getMatchDate('r32', i));
           matchup.innerHTML = `
             <div class="matchup-label">${label}</div>
+            ${time ? `<div class="match-time">${time}</div>` : ''}
             <div class="team-slot ${data.r32[i] ? 'selected' : 'empty'}" onclick="selectR32Slot(${i}, ${isAdmin})">
               ${data.r32[i] ? formatTeam(data.r32[i]) : 'Pick winner'}
             </div>
@@ -1191,8 +1224,10 @@
           const team1 = prevData[idx1];
           const team2 = prevData[idx2];
           const canPick = team1 && team2;
+          const time = fmtMatchTime(getMatchDate(roundKey, i));
 
           matchup.innerHTML = `
+            ${time ? `<div class="match-time">${time}</div>` : ''}
             <div class="team-slot ${data[roundKey][i] ? 'selected' : 'empty'} ${!canPick ? 'locked' : ''}"
                  onclick="${canPick ? `selectSlot('${roundKey}',${i},${isAdmin})` : ''}">
               ${data[roundKey][i] ? formatTeam(data[roundKey][i]) : (canPick ? 'Pick winner' : '-')}
@@ -1254,6 +1289,7 @@
         <div class="champion-display">
           <div class="trophy">🏆</div>
           <div class="round-title" style="margin:5px 0;">Champion<br><span class="points">20pts</span></div>
+          <div class="match-time">Final · ${fmtMatchTime(getMatchDate('final', 0))}</div>
           <div class="champion-slot ${data.champion ? '' : 'empty'}"
                onclick="${data.final[0] && data.final[1] ? `selectSlot('champion',0,${isAdmin})` : ''}">
             ${data.champion ? formatTeam(data.champion) : (data.final[0] && data.final[1] ? 'Pick champion' : '-')}
@@ -1269,6 +1305,7 @@
         </div>
         <div class="third-place-container">
           <div class="round-title" style="margin-top:15px;">3rd Place<br><span class="points">8pts</span></div>
+          <div class="match-time">${fmtMatchTime(getMatchDate('third', 0))}</div>
           <div class="third-place-match">
             <div class="third-teams">${canPick3rd ? `${formatTeam(sfLosers[0])} vs ${formatTeam(sfLosers[1])}` : 'SF losers'}</div>
             <div class="team-slot ${data.thirdPlace ? 'selected' : 'empty'} ${!canPick3rd ? 'locked' : ''}"
