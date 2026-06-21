@@ -121,28 +121,34 @@ async function main() {
       console.log('DEBUG standings count:', (standData.standings || []).length);
       console.log('DEBUG standings[0]:', JSON.stringify((standData.standings || [])[0]));
     }
-    const groupTables = {}; // 'A' -> [1st, 2nd, 3rd, 4th]
+    const groupTables = {};   // 'A' -> [1st, 2nd, 3rd, 4th] team names
+    const groupComplete = {}; // 'A' -> true once every team has played its 3 games
     for (const s of (standData.standings || [])) {
       if (s.type && s.type !== 'TOTAL') continue;
-      const letter = (s.group || '').replace('GROUP_', '').trim();
+      const letter = (s.group || '').replace(/^group[ _]/i, '').trim();
       if (!letter) continue;
-      groupTables[letter] = (s.table || []).map(r => normTeam(r.team?.name));
+      const table = s.table || [];
+      groupTables[letter] = table.map(r => normTeam(r.team?.name));
+      groupComplete[letter] = table.length > 0 && table.every(r => (r.playedGames || 0) >= 3);
     }
-    const resolvePos = (pos) => {
-      const rank = pos[0];
-      const grp = pos.slice(1);
-      if (rank === '1') return groupTables[grp]?.[0] || null;
-      if (rank === '2') return groupTables[grp]?.[1] || null;
-      // 3rd-place slots ("3DEF" etc.) need the FIFA best-third-place allocation
-      // table — TODO: implement once confirmed against the live feed. Until then
-      // these slots stay null and the app shows the placeholder ("1C vs 3rd DEF").
-      return null;
+    // Resolve "1A"/"2B" to a team — but only once the group is finished, so we
+    // never show a provisional matchup. 3rd-place slots ("3DEF") need the FIFA
+    // best-third allocation table — TODO, left null for now (app shows placeholder).
+    const resolvePos = (pos, gated = true) => {
+      const rank = pos[0], grp = pos.slice(1);
+      if (rank !== '1' && rank !== '2') return null;
+      if (gated && !groupComplete[grp]) return null;
+      return groupTables[grp]?.[rank === '1' ? 0 : 1] || null;
     };
-    r32Fixtures = R32.map(s => {
-      const home = resolvePos(s.home);
-      const away = resolvePos(s.away);
-      return (home && away) ? [home, away] : null;
+    const build = (gated) => R32.map(s => {
+      const h = resolvePos(s.home, gated), a = resolvePos(s.away, gated);
+      return (h && a) ? [h, a] : null;
     });
+    r32Fixtures = build(true);
+    if (DRY_RUN) {
+      console.log('DEBUG groups complete:', Object.entries(groupComplete).filter(([, v]) => v).map(([k]) => k).join(',') || 'none');
+      console.log('DEBUG provisional R32 (ignoring completion):', build(false).filter(Boolean).length, '/ 16');
+    }
   } catch (e) {
     console.warn('Standings fetch/resolve failed (R32 fixtures left empty):', e.message);
   }
