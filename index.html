@@ -557,6 +557,31 @@
     .step-label #step-name { font-weight: 600; font-size: 15px; }
     .step-label #step-count { color: #aaa; font-size: 11px; }
 
+    /* Desktop bracket alignment: equal-height rounds + space-around so each
+       round's matchups auto-center between the previous round's pairs. */
+    @media (min-width: 769px) {
+      .bracket { align-items: stretch; }
+      .round { min-height: 800px; }
+      .round-title { min-height: 38px; flex-shrink: 0; }
+      .matchups { flex: 1; gap: 0 !important; justify-content: space-around; }
+      /* Connector columns become plain spacers; the bracket lines were tied to
+         the old fixed gaps and can't stay aligned, so hide them. */
+      .connector-pair::before,
+      .connector-pair::after { display: none; }
+      /* Final column: the final matchup centers like other rounds (.matchups
+         flex:1), and the champion + 3rd-place sit absolutely below it so they
+         don't pull the matchup off the semifinal line. */
+      .round-final { min-height: 800px; position: relative; }
+      .round-final .champion-display {
+        position: absolute; top: 60%; left: 0; right: 0;
+        display: flex; flex-direction: column; align-items: center;
+      }
+      .round-final .third-place-container {
+        position: absolute; bottom: 6px; left: 0; right: 0;
+        display: flex; flex-direction: column; align-items: center;
+      }
+    }
+
     /* Mobile: stack the bracket vertically instead of side-scrolling */
     @media (max-width: 768px) {
       /* Round-by-round stepper: show only the round matching data-step */
@@ -869,9 +894,11 @@
       return pos;
     }
 
-    // State
+    // State. r32Pred holds the user's predicted competitor per R32 side (who
+    // they think fills "1C" etc.) before they pick the matchup winner (r32).
     const state = {
       r32: Array(16).fill(null),
+      r32Pred: Array.from({ length: 16 }, () => ({ home: null, away: null })),
       r16: Array(8).fill(null),
       qf: Array(4).fill(null),
       sf: Array(2).fill(null),
@@ -882,6 +909,7 @@
 
     const actualResults = {
       r32: Array(16).fill(null),
+      r32Pred: Array.from({ length: 16 }, () => ({ home: null, away: null })),
       r16: Array(8).fill(null),
       qf: Array(4).fill(null),
       sf: Array(2).fill(null),
@@ -1214,41 +1242,88 @@
       container.appendChild(rightR32);
     }
 
-    // The two competitors of a matchup. Each side is a known team, an
-    // unresolved R32 position (a pool of candidates), or empty (later-round
-    // feeder not yet picked).
+    // The two competitors of a matchup. For R32 a side is: a confirmed team
+    // (real, from the feed), the user's predicted team for that position, the
+    // current winner placed on its side, or an empty position placeholder.
     function matchupSides(data, round, i) {
       if (round === 'r32') {
         const struct = r32Structure[i];
         const fx = r32Fixtures[i];
+        const pred = (data.r32Pred && data.r32Pred[i]) || { home: null, away: null };
+        const winner = data.r32[i];
         const sideLabels = struct.label.split(' vs ');
-        const mk = (team, pos, lbl) => team
-          ? { team, candidates: [team], label: `${getFlag(team)} ${team}`, pos }
-          : { team: null, candidates: getTeamsForPosition(pos), label: lbl, pos };
+        const mk = (real, predTeam, pos, lbl) => {
+          let team = real || predTeam || null;
+          // Pools are disjoint, so a known winner belongs to exactly one side —
+          // place it there (covers loaded/retrieved brackets with no r32Pred).
+          if (!team && winner && getTeamsForPosition(pos).includes(winner)) team = winner;
+          return {
+            team, real: !!real, filled: !!team,
+            candidates: getTeamsForPosition(pos),
+            label: team ? `${getFlag(team)} ${team}` : lbl, pos
+          };
+        };
         return {
-          home: mk(fx ? fx.home : null, struct.home, sideLabels[0]),
-          away: mk(fx ? fx.away : null, struct.away, sideLabels[1])
+          home: mk(fx ? fx.home : null, pred.home, struct.home, sideLabels[0]),
+          away: mk(fx ? fx.away : null, pred.away, struct.away, sideLabels[1])
         };
       }
       const prev = getPrevRound(round);
-      const mk = (team) => team
-        ? { team, candidates: [team], label: `${getFlag(team)} ${team}`, pos: null }
-        : { team: null, candidates: [], label: '–', pos: null };
+      const mk = (team) => ({
+        team: team || null, real: !!team, filled: !!team,
+        candidates: team ? [team] : [], label: team ? `${getFlag(team)} ${team}` : '–', pos: null
+      });
       return { home: mk(data[prev][i * 2]), away: mk(data[prev][i * 2 + 1]) };
     }
 
-    // Click a competitor to advance it. Known side → picks directly; an
-    // unresolved R32 pool → opens a chooser for which team.
+    // R32: first click on a position fills in who you think it is; click the
+    // filled team to advance it. Later rounds: one click advances the team.
     function pickSide(round, index, side, isAdmin) {
-      const targetState = isAdmin ? actualResults : state;
-      const s = matchupSides(targetState, round, index)[side];
-      if (!s.candidates.length) return;
-      currentSelection = { round, index, isAdmin };
-      if (s.candidates.length === 1) {
-        pickTeam(s.candidates[0]);
-      } else {
-        openModal(`Pick winner — ${getPositionLabel(s.pos)}`, getPositionLabel(s.pos), s.candidates);
+      const t = isAdmin ? actualResults : state;
+      const render = () => renderBracket(t, isAdmin ? 'admin-bracket' : 'user-bracket', isAdmin);
+
+      if (round === 'r32') {
+        const struct = r32Structure[index];
+        const fx = r32Fixtures[index];
+        const real = fx ? (side === 'home' ? fx.home : fx.away) : null;
+        const pos = side === 'home' ? struct.home : struct.away;
+        const pool = getTeamsForPosition(pos);
+        const winner = t.r32[index];
+        let team = real || t.r32Pred[index][side] || null;
+        if (!team && winner && pool.includes(winner)) team = winner;
+
+        const choose = () => openModal(`Who do you think is ${getPositionLabel(pos)}?`, getPositionLabel(pos), pool, (chosen) => {
+          t.r32Pred[index][side] = chosen;
+          // If this side's team was the winner and it changed, drop the winner.
+          if (t.r32[index] && pool.includes(t.r32[index]) && t.r32[index] !== chosen) {
+            t.r32[index] = null;
+            clearDownstream(t, 'r32', index);
+            syncFinalists(t);
+          }
+          closeModal();
+          render();
+        });
+
+        if (!team) { choose(); return; }
+        if (winner !== team) {
+          currentSelection = { round: 'r32', index, isAdmin };
+          pickTeam(team);
+        } else if (real) {
+          t.r32[index] = null; // confirmed team can't change — toggle the win off
+          clearDownstream(t, 'r32', index);
+          syncFinalists(t);
+          render();
+        } else {
+          choose(); // re-pick who you think this position is
+        }
+        return;
       }
+
+      // Later rounds: the competitor is a feeder winner — click to advance it.
+      const s = matchupSides(t, round, index)[side];
+      if (!s.filled) return;
+      currentSelection = { round, index, isAdmin };
+      pickTeam(s.team);
     }
 
     function createRoundColumn(title, points, roundKey, data, indices, isAdmin, isR32 = false) {
@@ -1269,8 +1344,8 @@
 
         const line = (s, sideName) => {
           const clickable = s.candidates.length > 0;
-          const isWon = winner && s.candidates.includes(winner);
-          const isLost = winner && clickable && !isWon;
+          const isWon = winner && s.filled && s.team === winner;
+          const isLost = winner && s.filled && !isWon;
           const cls = `team-line ${isWon ? 'won' : ''} ${isLost ? 'lost' : ''} ${clickable ? '' : 'empty'}`;
           const click = clickable ? `onclick="pickSide('${roundKey}',${i},'${sideName}',${isAdmin})"` : '';
           return `<div class="${cls}" ${click}>${s.label}</div>`;
@@ -1337,8 +1412,12 @@
 
       col.innerHTML = `
         <div class="round-title">Final<br><span class="points">12pts</span></div>
-        <div class="match-time">${fmtMatchTime(getMatchDate('final', 0))}</div>
-        ${pair(data.sf[0], data.sf[1], data.champion, 'pickFinalSide')}
+        <div class="matchups">
+          <div>
+            <div class="match-time">${fmtMatchTime(getMatchDate('final', 0))}</div>
+            ${pair(data.sf[0], data.sf[1], data.champion, 'pickFinalSide')}
+          </div>
+        </div>
         <div class="champion-display">
           <div class="trophy">🏆</div>
           <div class="round-title" style="margin:5px 0;">Champion<br><span class="points">20pts</span></div>
@@ -1491,7 +1570,7 @@
       openModal(title, subtitle, availableTeams);
     }
 
-    function openModal(title, subtitle, teams) {
+    function openModal(title, subtitle, teams, onpick) {
       document.getElementById('modal-title').textContent = title;
       document.getElementById('modal-subtitle').textContent = subtitle;
 
@@ -1502,7 +1581,7 @@
         const div = document.createElement('div');
         div.className = 'team-option';
         div.innerHTML = formatTeam(team);
-        div.onclick = () => pickTeam(team);
+        div.onclick = () => (onpick ? onpick(team) : pickTeam(team));
         grid.appendChild(div);
       });
 
@@ -1528,15 +1607,16 @@
         clearDownstream(targetState, round, index);
       }
 
-      // Finalists are the semifinal winners — keep them in sync for scoring, and
-      // clear a champion that's no longer one of the finalists.
-      targetState.final = [targetState.sf[0] || null, targetState.sf[1] || null];
-      if (targetState.champion && !targetState.final.includes(targetState.champion)) {
-        targetState.champion = null;
-      }
-
+      syncFinalists(targetState);
       closeModal();
       renderBracket(targetState, isAdmin ? 'admin-bracket' : 'user-bracket', isAdmin);
+    }
+
+    // Finalists are the semifinal winners — keep them in sync for scoring, and
+    // clear a champion that's no longer one of the finalists.
+    function syncFinalists(t) {
+      t.final = [t.sf[0] || null, t.sf[1] || null];
+      if (t.champion && !t.final.includes(t.champion)) t.champion = null;
     }
 
     function clearDownstream(targetState, changedRound, changedIndex) {
@@ -1577,6 +1657,7 @@
     function resetBracket() {
       if (!confirm('Reset your entire bracket?')) return;
       state.r32 = Array(16).fill(null);
+      state.r32Pred = Array.from({ length: 16 }, () => ({ home: null, away: null }));
       state.r16 = Array(8).fill(null);
       state.qf = Array(4).fill(null);
       state.sf = Array(2).fill(null);
