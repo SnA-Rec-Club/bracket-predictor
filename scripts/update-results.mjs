@@ -39,6 +39,7 @@ const NAME_MAP = {
   'Congo DR': 'DR Congo',
   'DR Congo (Congo DR)': 'DR Congo',
   'Cabo Verde': 'Cape Verde',
+  'Cape Verde Islands': 'Cape Verde',
   'United States': 'USA',
 };
 
@@ -86,6 +87,11 @@ async function main() {
   console.log('Stages present:', [...new Set(matches.map(m => m.stage))].join(', '));
   console.log('Statuses present:', [...new Set(matches.map(m => m.status))].join(', '));
 
+  if (DRY_RUN) {
+    const sample = matches.find(m => m.stage === 'LAST_32') || matches.find(m => m.stage === 'LAST_16');
+    console.log('DEBUG sample knockout match:', JSON.stringify(sample));
+  }
+
   // --- Results: winners bucketed by round (set membership is all the app needs) ---
   const STAGE_TO_ROUND = { LAST_32: 'r32', LAST_16: 'r16', QUARTER_FINALS: 'qf', SEMI_FINALS: 'sf' };
   const results = { r32: [], r16: [], qf: [], sf: [], final: [], champion: null, thirdPlace: null };
@@ -111,6 +117,10 @@ async function main() {
   let r32Fixtures = Array(16).fill(null);
   try {
     const standData = await fdGet(`/competitions/${COMP}/standings`);
+    if (DRY_RUN) {
+      console.log('DEBUG standings count:', (standData.standings || []).length);
+      console.log('DEBUG standings[0]:', JSON.stringify((standData.standings || [])[0]));
+    }
     const groupTables = {}; // 'A' -> [1st, 2nd, 3rd, 4th]
     for (const s of (standData.standings || [])) {
       if (s.type && s.type !== 'TOTAL') continue;
