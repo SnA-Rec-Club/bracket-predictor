@@ -134,6 +134,31 @@
       white-space: nowrap;
     }
 
+    /* Two-competitor matchup (click a team to advance it) */
+    .matchup-pair {
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 6px;
+      overflow: hidden;
+      min-width: 122px;
+    }
+    .team-line {
+      padding: 5px 9px;
+      font-size: 11px;
+      cursor: pointer;
+      background: rgba(255,255,255,0.06);
+      border-bottom: 1px solid rgba(255,255,255,0.12);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      transition: background 0.15s;
+    }
+    .team-line:last-child { border-bottom: none; }
+    .team-line:hover { background: rgba(255,255,255,0.16); }
+    .team-line.won { background: #e94560; color: #fff; font-weight: 600; }
+    .team-line.lost { opacity: 0.4; }
+    .team-line.empty { color: #888; font-style: italic; cursor: default; }
+    .team-line.empty:hover { background: rgba(255,255,255,0.06); }
+
     .team-slot {
       background: rgba(255,255,255,0.1);
       border: 2px solid rgba(255,255,255,0.2);
@@ -583,6 +608,8 @@
         padding: 14px 12px;
         white-space: normal;
       }
+      .matchup-pair { width: 100%; min-width: 0; }
+      .team-line { font-size: 14px; padding: 13px 12px; }
       .matchup-label { font-size: 11px; }
       .match-time { font-size: 11px; }
 
@@ -1187,6 +1214,43 @@
       container.appendChild(rightR32);
     }
 
+    // The two competitors of a matchup. Each side is a known team, an
+    // unresolved R32 position (a pool of candidates), or empty (later-round
+    // feeder not yet picked).
+    function matchupSides(data, round, i) {
+      if (round === 'r32') {
+        const struct = r32Structure[i];
+        const fx = r32Fixtures[i];
+        const sideLabels = struct.label.split(' vs ');
+        const mk = (team, pos, lbl) => team
+          ? { team, candidates: [team], label: `${getFlag(team)} ${team}`, pos }
+          : { team: null, candidates: getTeamsForPosition(pos), label: lbl, pos };
+        return {
+          home: mk(fx ? fx.home : null, struct.home, sideLabels[0]),
+          away: mk(fx ? fx.away : null, struct.away, sideLabels[1])
+        };
+      }
+      const prev = getPrevRound(round);
+      const mk = (team) => team
+        ? { team, candidates: [team], label: `${getFlag(team)} ${team}`, pos: null }
+        : { team: null, candidates: [], label: '–', pos: null };
+      return { home: mk(data[prev][i * 2]), away: mk(data[prev][i * 2 + 1]) };
+    }
+
+    // Click a competitor to advance it. Known side → picks directly; an
+    // unresolved R32 pool → opens a chooser for which team.
+    function pickSide(round, index, side, isAdmin) {
+      const targetState = isAdmin ? actualResults : state;
+      const s = matchupSides(targetState, round, index)[side];
+      if (!s.candidates.length) return;
+      currentSelection = { round, index, isAdmin };
+      if (s.candidates.length === 1) {
+        pickTeam(s.candidates[0]);
+      } else {
+        openModal(`Pick winner — ${getPositionLabel(s.pos)}`, getPositionLabel(s.pos), s.candidates);
+      }
+    }
+
     function createRoundColumn(title, points, roundKey, data, indices, isAdmin, isR32 = false) {
       const round = document.createElement('div');
       round.className = `round round-${roundKey}`;
@@ -1199,44 +1263,26 @@
         const matchup = document.createElement('div');
         matchup.className = 'matchup';
 
-        if (isR32) {
-          const struct = r32Structure[i];
-          const fx = r32Fixtures[i];
-          const fxHome = fx ? fx.home : null;
-          const fxAway = fx ? fx.away : null;
-          // Show each side's real team once known; otherwise the placeholder
-          // position. Sides resolve independently (e.g. "Germany vs 3rd ABCDF").
-          const sideLabels = struct.label.split(' vs ');
-          const hLbl = fxHome ? `${getFlag(fxHome)} ${fxHome}` : sideLabels[0];
-          const aLbl = fxAway ? `${getFlag(fxAway)} ${fxAway}` : sideLabels[1];
-          const label = `${hLbl} <span style="color:#999">v</span> ${aLbl}`;
-          const time = fmtMatchTime(getMatchDate('r32', i));
-          matchup.innerHTML = `
-            <div class="matchup-label">${label}</div>
-            ${time ? `<div class="match-time">${time}</div>` : ''}
-            <div class="team-slot ${data.r32[i] ? 'selected' : 'empty'}" onclick="selectR32Slot(${i}, ${isAdmin})">
-              ${data.r32[i] ? formatTeam(data.r32[i]) : 'Pick winner'}
-            </div>
-          `;
-        } else {
-          const prevRound = getPrevRound(roundKey);
-          const prevData = data[prevRound];
-          const idx1 = i * 2;
-          const idx2 = i * 2 + 1;
-          const team1 = prevData[idx1];
-          const team2 = prevData[idx2];
-          const canPick = team1 && team2;
-          const time = fmtMatchTime(getMatchDate(roundKey, i));
+        const sides = matchupSides(data, roundKey, i);
+        const winner = data[roundKey][i];
+        const time = fmtMatchTime(getMatchDate(roundKey, i));
 
-          matchup.innerHTML = `
-            ${time ? `<div class="match-time">${time}</div>` : ''}
-            <div class="team-slot ${data[roundKey][i] ? 'selected' : 'empty'} ${!canPick ? 'locked' : ''}"
-                 onclick="${canPick ? `selectSlot('${roundKey}',${i},${isAdmin})` : ''}">
-              ${data[roundKey][i] ? formatTeam(data[roundKey][i]) : (canPick ? 'Pick winner' : '-')}
-            </div>
-          `;
-        }
+        const line = (s, sideName) => {
+          const clickable = s.candidates.length > 0;
+          const isWon = winner && s.candidates.includes(winner);
+          const isLost = winner && clickable && !isWon;
+          const cls = `team-line ${isWon ? 'won' : ''} ${isLost ? 'lost' : ''} ${clickable ? '' : 'empty'}`;
+          const click = clickable ? `onclick="pickSide('${roundKey}',${i},'${sideName}',${isAdmin})"` : '';
+          return `<div class="${cls}" ${click}>${s.label}</div>`;
+        };
 
+        matchup.innerHTML = `
+          ${time ? `<div class="match-time">${time}</div>` : ''}
+          <div class="matchup-pair">
+            ${line(sides.home, 'home')}
+            ${line(sides.away, 'away')}
+          </div>
+        `;
         matchups.appendChild(matchup);
       });
 
