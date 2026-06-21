@@ -858,9 +858,24 @@
       third: ["2026-07-18T21:00:00Z"]
     };
 
+    // Official FIFA match numbers, in app slot order (R32 numbers live on
+    // r32Structure). Verified against the official knockout schedule.
+    const matchNo = {
+      r16: [89, 90, 93, 94, 91, 92, 95, 96],
+      qf: [97, 98, 99, 100],
+      sf: [101, 102],
+      final: [104],
+      third: [103]
+    };
+
     function getMatchDate(round, i) {
       if (round === 'r32') return r32Structure[i] && r32Structure[i].date;
       return schedule[round] && schedule[round][i];
+    }
+
+    function getMatchNo(round, i) {
+      if (round === 'r32') return r32Structure[i] && r32Structure[i].match;
+      return matchNo[round] && matchNo[round][i];
     }
 
     function fmtMatchTime(iso) {
@@ -868,6 +883,13 @@
       try {
         return new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
       } catch (_) { return ''; }
+    }
+
+    // "Match 74 · Jun 30, 4:30" — the official match number plus local kickoff.
+    function matchInfo(round, i) {
+      const no = getMatchNo(round, i);
+      const t = fmtMatchTime(getMatchDate(round, i));
+      return [no ? `Match ${no}` : '', t].filter(Boolean).join(' · ');
     }
 
     // Get teams for a position like "1A", "2B", "3ABC"
@@ -1340,7 +1362,7 @@
 
         const sides = matchupSides(data, roundKey, i);
         const winner = data[roundKey][i];
-        const time = fmtMatchTime(getMatchDate(roundKey, i));
+        const time = matchInfo(roundKey, i);
 
         const line = (s, sideName) => {
           const clickable = s.candidates.length > 0;
@@ -1414,7 +1436,7 @@
         <div class="round-title">Final<br><span class="points">12pts</span></div>
         <div class="matchups">
           <div>
-            <div class="match-time">${fmtMatchTime(getMatchDate('final', 0))}</div>
+            <div class="match-time">${matchInfo('final', 0)}</div>
             ${pair(data.sf[0], data.sf[1], data.champion, 'pickFinalSide')}
           </div>
         </div>
@@ -1427,7 +1449,7 @@
         </div>
         <div class="third-place-container">
           <div class="round-title" style="margin-top:15px;">3rd Place<br><span class="points">8pts</span></div>
-          <div class="match-time">${fmtMatchTime(getMatchDate('third', 0))}</div>
+          <div class="match-time">${matchInfo('third', 0)}</div>
           ${sfLosers.length === 2
             ? pair(sfLosers[0], sfLosers[1], data.thirdPlace, 'pickThirdSide')
             : '<div class="third-teams">SF losers</div>'}
