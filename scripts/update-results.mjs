@@ -133,7 +133,11 @@ async function main() {
   }
   if (DRY_RUN) {
     const feedR32 = matches.filter(m => m.stage === 'LAST_32');
+    const feedDates = feedR32.map(m => m.utcDate).sort();
+    const matched = new Set(feedDates);
     console.log(`DEBUG LAST_32 feed matches: ${feedR32.length}, unmapped by date: ${unmappedDates}`);
+    console.log('DEBUG feed LAST_32 dates:', JSON.stringify(feedDates));
+    console.log('DEBUG my slot dates with no feed match:', JSON.stringify(R32_DATES.filter(d => !matched.has(d))));
   }
 
   // --- Per-round earliest kickoff (groundwork for per-match locking later) ---
