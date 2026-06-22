@@ -2,6 +2,9 @@
 
 A simple bracket prediction game for the FIFA World Cup 2026 knockout stage.
 
+> **Editing & pushing changes?** See [DEVELOPING.md](DEVELOPING.md) for the
+> edit → preview → push workflow.
+
 ## Features
 
 - Pick quarterfinalists, semifinalists, finalists, and champion
