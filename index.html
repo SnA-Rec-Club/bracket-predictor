@@ -1106,6 +1106,7 @@
     let lastViewed = null;
     let lastSubmitted = null;
     let bracketsLocked = false;
+    let _myScoreCache = null; // {data, code} set by viewMyScore so showMyBracket can reuse it
 
     function bracketLink(code) {
       return `${location.origin}${location.pathname}?bracket=${code}`;
@@ -1203,13 +1204,20 @@
           ? `<div style="margin-top:6px;font-size:12px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:6px 10px;">⚠️ ${lockedOut} R32 pick${lockedOut > 1 ? 's were' : ' was'} not counted — you submitted after those match${lockedOut > 1 ? 'es had' : ' had'} already kicked off.</div>`
           : '';
 
+        _myScoreCache = { data: doc.data(), code };
         msg.style.color = '#059669';
-        msg.innerHTML = `Your score: <strong>${score} pts</strong>${parts.length ? ' · ' + parts.join(', ') : ''} · <a href="${bracketLink(code)}" style="color:#2563eb;">View bracket</a>${lockedNote}`;
+        msg.innerHTML = `Your score: <strong>${score} pts</strong>${parts.length ? ' · ' + parts.join(', ') : ''} · <a href="#" onclick="event.preventDefault();showMyBracket()" style="color:#2563eb;">View bracket</a>${lockedNote}`;
       } catch (e) {
         console.error(e);
         msg.style.color = '#888';
         msg.textContent = 'Could not load. Try again.';
       }
+    }
+
+    function showMyBracket() {
+      if (!_myScoreCache) return;
+      showPage('find');
+      showRetrievedBracket(_myScoreCache.data, _myScoreCache.code);
     }
 
     // ---- Lock check: disable submitting once the lock time has passed -------
