@@ -1605,19 +1605,18 @@
         return `<div class="${cls}">${formatTeam(team)}</div>`;
       };
 
-      // Two stacked competitors; `winner` (champion or 3rd) highlights (non-view mode).
+      // Two stacked competitors; `winner` (champion or 3rd) highlights.
       const pair = (a, b, winner, handler, resultKey) => {
-        const sfResultsKnown = results && Array.isArray(results.final) && results.final.some(t => t != null);
-        const thirdResultsKnown = results && results.thirdPlace != null;
-        const isThird = resultKey === 'thirdPlace';
-        const known = isThird ? thirdResultsKnown : sfResultsKnown;
+        const r = results ? results[resultKey] : null;
+        const known = Array.isArray(r) ? r.some(t => t != null) : r != null;
         const mk = (team, side) => {
           if (results) {
             if (!team) return `<div class="team-line empty">–</div>`;
-            // 3rd place: only the loser the user actually picked should be
-            // highlighted; the other SF loser stays neutral.
-            if (isThird && team !== winner) return `<div class="team-line">${formatTeam(team)}</div>`;
-            return mkResult(team, isThird ? 'thirdPlace' : 'final', known) || `<div class="team-line empty">–</div>`;
+            // Consistent with every other match: only the team picked to advance
+            // (the final's champion / the 3rd-place winner) is highlighted; the
+            // other side stays neutral.
+            if (team !== winner) return `<div class="team-line">${formatTeam(team)}</div>`;
+            return mkResult(team, resultKey, known);
           }
           if (!team) return `<div class="team-line empty">–</div>`;
           const won = winner && winner === team;
@@ -1638,7 +1637,7 @@
         <div class="matchups">
           <div>
             <div class="match-time">${matchInfo('final', 0)}</div>
-            ${pair(data.sf[0], data.sf[1], data.champion, 'pickFinalSide', 'final')}
+            ${pair(data.sf[0], data.sf[1], data.champion, 'pickFinalSide', 'champion')}
           </div>
         </div>
         <div class="champion-display">
