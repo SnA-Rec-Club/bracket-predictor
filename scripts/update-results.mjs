@@ -172,6 +172,12 @@ async function main() {
   if (DRY_RUN) {
     console.log(`DEBUG LAST_32 feed matches: ${matches.filter(m => m.stage === 'LAST_32').length}, unmapped by date: ${unmappedDates}`);
     console.log('DEBUG override posMap:', JSON.stringify(posMap));
+    // Log each fixture as plain text (avoids secret-masking of JSON braces)
+    console.log('DEBUG r32Fixtures:');
+    r32Fixtures.forEach((fx, i) => {
+      const s = R32[i];
+      console.log(`  SLOT-${i} [${s.home} vs ${s.away}] => ${fx ? fx.home + ' vs ' + fx.away : 'null'}`);
+    });
   }
 
   // --- Per-round earliest kickoff (groundwork for per-match locking later) ---
