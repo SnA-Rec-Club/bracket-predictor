@@ -8,7 +8,7 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #f0f4ff 0%, #e4edf8 100%);
+      background: linear-gradient(135deg, #edfff4 0%, #edf4ff 50%, #f5edff 100%);
       min-height: 100vh;
       padding: 20px;
       color: #1a1a2e;
@@ -32,7 +32,7 @@
       transition: background 0.3s;
       cursor: pointer;
     }
-    nav a:hover, nav a.active { background: #e94560; color: #fff; }
+    nav a:hover, nav a.active { background: #2874d5; color: #fff; }
 
     .page { display: none; }
     .page.active { display: block; }
@@ -57,7 +57,7 @@
       border-radius: 8px;
       font-size: 15px;
     }
-    .card input:focus { border-color: #e94560; outline: none; }
+    .card input:focus { border-color: #2874d5; outline: none; }
     .card label { font-size: 14px; color: #666; }
 
     .bracket-container {
@@ -95,7 +95,7 @@
     }
 
     .round-title .points {
-      color: #e94560;
+      color: #8e44ad;
       font-weight: bold;
     }
 
@@ -126,7 +126,7 @@
 
     .match-time {
       font-size: 8px;
-      color: #c0405a;
+      color: #2874d5;
       text-align: center;
       margin-bottom: 2px;
       white-space: nowrap;
@@ -154,12 +154,12 @@
     }
     .team-line:last-child { border-bottom: none; }
     .team-line:hover { background: rgba(0,0,0,0.07); }
-    .team-line.won { background: #e94560; color: #fff; font-weight: 600; }
+    .team-line.won { background: #27ae60; color: #fff; font-weight: 600; }
     .team-line.lost { opacity: 0.35; }
     /* empty = non-clickable slot (no candidates); pick-hint = unfilled but clickable */
     .team-line.empty { color: #aaa; font-style: italic; cursor: default; }
     .team-line.empty:hover { background: rgba(0,0,0,0.02); }
-    .team-line.pick-hint { color: #7090b0; font-style: italic; }
+    .team-line.pick-hint { color: #20a090; font-style: italic; }
     .team-line.pick-hint:hover { background: rgba(0,0,0,0.05); }
 
     .team-slot {
@@ -180,12 +180,12 @@
 
     .team-slot:hover {
       background: rgba(0,0,0,0.1);
-      border-color: #e94560;
+      border-color: #8e44ad;
     }
 
     .team-slot.selected {
-      background: #e94560;
-      border-color: #e94560;
+      background: #8e44ad;
+      border-color: #8e44ad;
       color: white;
       font-weight: 600;
     }
@@ -230,7 +230,7 @@
       top: 25%;
       height: 50%;
       width: 10px;
-      border: 2px solid rgba(0,0,0,0.18);
+      border: 2px solid rgba(80,120,210,0.3);
       border-left: none;
       border-radius: 0 4px 4px 0;
     }
@@ -242,7 +242,7 @@
       top: 50%;
       width: 10px;
       height: 2px;
-      background: rgba(0,0,0,0.18);
+      background: rgba(80,120,210,0.3);
     }
 
     /* Single horizontal connector (SF → Final) */
@@ -255,7 +255,7 @@
       content: '';
       width: 100%;
       height: 2px;
-      background: rgba(0,0,0,0.18);
+      background: rgba(80,120,210,0.3);
     }
 
     .champion-display {
@@ -345,8 +345,8 @@
     }
 
     .team-option:hover {
-      border-color: #e94560;
-      background: #fff5f7;
+      border-color: #2874d5;
+      background: #f0f6ff;
     }
 
     .team-option .group-tag {
@@ -361,8 +361,8 @@
       width: 100%;
       padding: 14px;
       background: #fff;
-      color: #e94560;
-      border: 2px solid #e94560;
+      color: #8e44ad;
+      border: 2px solid #8e44ad;
       border-radius: 8px;
       cursor: pointer;
       font-size: 15px;
@@ -370,13 +370,13 @@
       transition: background 0.2s, color 0.2s;
     }
     .modal-close:hover {
-      background: #e94560;
+      background: #8e44ad;
       color: #fff;
       transform: none;
     }
 
     button {
-      background: linear-gradient(135deg, #e94560, #c73e54);
+      background: linear-gradient(135deg, #2874d5, #1a5fb3);
       color: white;
       border: none;
       padding: 15px 30px;
@@ -387,7 +387,7 @@
     }
     button:hover { transform: translateY(-2px); }
     button:disabled { background: #666; cursor: not-allowed; transform: none; }
-    .btn-secondary { background: linear-gradient(135deg, #16213e, #1a1a2e); }
+    .btn-secondary { background: linear-gradient(135deg, #27ae60, #1e8449); }
 
     .actions {
       display: flex;
@@ -439,21 +439,21 @@
       text-align: left;
       border-bottom: 1px solid #eee;
     }
-    .leaderboard-table th { background: #16213e; color: white; font-size: 11px; }
+    .leaderboard-table th { background: #2c1a54; color: white; font-size: 11px; }
     .leaderboard-table tr:hover { background: #f9f9f9; }
     .rank-1 { background: linear-gradient(90deg, #ffd70033, transparent); }
     .rank-2 { background: linear-gradient(90deg, #c0c0c033, transparent); }
     .rank-3 { background: linear-gradient(90deg, #cd7f3233, transparent); }
-    .rank-prize { background: linear-gradient(90deg, #e9456012, transparent); }
+    .rank-prize { background: linear-gradient(90deg, #8e44ad12, transparent); }
     .medal { font-size: 16px; }
-    .score { font-weight: bold; color: #e94560; }
+    .score { font-weight: bold; color: #8e44ad; }
     .breakdown { font-size: 9px; color: #888; }
 
     .loading { text-align: center; padding: 40px; color: #666; }
     .spinner {
       width: 30px; height: 30px;
       border: 3px solid #eee;
-      border-top-color: #e94560;
+      border-top-color: #27ae60;
       border-radius: 50%;
       animation: spin 1s linear infinite;
       margin: 0 auto 15px;
@@ -727,7 +727,7 @@
   <div id="leaderboard-page" class="page">
     <div class="card" style="max-width:900px;">
       <h2>🏆 Leaderboard</h2>
-      <p style="color:#888;font-size:12px;margin-bottom:15px;">🎁 Top 5 win a prize at the <strong style="color:#e94560;">Fruit Festival · 24 Jul</strong></p>
+      <p style="color:#888;font-size:12px;margin-bottom:15px;">🎁 Top 5 win a prize at the <strong style="color:#8e44ad;">Fruit Festival · 24 Jul</strong></p>
       <div id="leaderboard-content">
         <div class="loading"><div class="spinner"></div>Loading...</div>
       </div>
