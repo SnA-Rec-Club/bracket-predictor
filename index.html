@@ -723,7 +723,7 @@
       <ol style="margin:6px 0 14px;padding-left:18px;color:#64748b;line-height:1.6;font-size:14px;">
         <li>Enter your <strong>name &amp; email</strong> below, then fill in your picks.</li>
         <li>Tap the team you think advances — it turns green. In the <strong>Round of 32</strong>, tap a slot to pick who finishes there, then tap them again to advance them.</li>
-        <li>Pick all the way to the <strong>Champion</strong> and the <strong>3rd-place</strong> finisher, then hit <strong>Submit</strong>.</li>
+        <li>Pick all the way to the <strong>Champion</strong> and the <strong>3rd-place</strong> finisher, then hit <strong>Submit</strong>. Each email can only submit once.</li>
         <li>If you face any issues, drop an email to <a href="mailto:SnA_Rec_Club@a-star.edu.sg" style="color:#2563eb;">SnA_Rec_Club@a-star.edu.sg</a> or your friendly Rec Club Division Rep.</li>
       </ol>
 
@@ -751,8 +751,7 @@
       <input type="text" id="name" placeholder="Enter your name">
       <label>Email</label>
       <input type="email" id="email" placeholder="Enter your email">
-      <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Submitting again with the same email updates your bracket (until it locks).</p>
-      <button onclick="loadMyBracket()" class="btn-secondary" style="width:100%;margin-top:10px;padding:10px;font-size:14px;">↺ Load my saved bracket (to edit)</button>
+      <button onclick="viewMyScore()" class="btn-secondary" style="width:100%;margin-top:10px;padding:10px;font-size:14px;">📊 View my score</button>
       <div id="load-msg" style="font-size:12px;text-align:center;margin-top:6px;"></div>
     </div>
 
@@ -1155,33 +1154,34 @@
       if (lastViewed) triggerDownload(`wc2026_bracket_${fileSafe(lastViewed.name)}.txt`, bracketToText(lastViewed));
     }
 
-    // ---- Load an existing bracket into the editor (to edit & re-submit) -----
-    async function loadMyBracket() {
+    // ---- Show a user their current score -----
+    async function viewMyScore() {
       const email = document.getElementById('email').value.trim();
       const msg = document.getElementById('load-msg');
       msg.style.color = '#888';
+      msg.innerHTML = '';
       if (!email) { msg.textContent = 'Enter your email above first.'; return; }
       if (!firebaseConfigured) { msg.textContent = 'Firebase not configured.'; return; }
       msg.textContent = 'Loading…';
       try {
         const code = await emailHash(email);
         const doc = await db.collection('picks').doc(code).get();
-        if (!doc.exists) { msg.textContent = 'No saved bracket found for that email.'; return; }
-        const d = doc.data();
-        state.r32 = (d.r32 || Array(16).fill(null)).slice();
-        state.r16 = (d.r16 || Array(8).fill(null)).slice();
-        state.qf = (d.qf || Array(4).fill(null)).slice();
-        state.sf = (d.sf || Array(2).fill(null)).slice();
-        state.final = (d.final || Array(2).fill(null)).slice();
-        state.champion = d.champion || null;
-        state.thirdPlace = d.thirdPlace || null;
-        if (d.name) document.getElementById('name').value = d.name;
-        renderBracket(state, 'user-bracket', false);
-        applyStep();
-        msg.style.color = '#2a8';
-        msg.textContent = 'Loaded! Edit your picks and submit again to update.';
+        if (!doc.exists) { msg.textContent = 'No submission found for that email.'; return; }
+        const picks = { id: code, ...doc.data() };
+        const { score, breakdown: bd } = calculateScore(picks);
+        const parts = [];
+        if (bd.r32) parts.push(`R32: ${bd.r32}`);
+        if (bd.r16) parts.push(`R16: ${bd.r16}`);
+        if (bd.qf) parts.push(`QF: ${bd.qf}`);
+        if (bd.sf) parts.push(`SF: ${bd.sf}`);
+        if (bd.final) parts.push(`Final: ${bd.final}`);
+        if (bd.champion) parts.push('Champion ✓');
+        if (bd.thirdPlace) parts.push('3rd place ✓');
+        msg.style.color = '#059669';
+        msg.innerHTML = `Your score: <strong>${score} pts</strong>${parts.length ? ' · ' + parts.join(', ') : ''} · <a href="${bracketLink(code)}" style="color:#2563eb;">View bracket</a>`;
       } catch (e) {
         console.error(e);
+        msg.style.color = '#888';
         msg.textContent = 'Could not load. Try again.';
       }
     }
@@ -1818,9 +1818,16 @@
         const name = document.getElementById('name').value.trim();
         const email = document.getElementById('email').value.trim();
 
-        // Identify the bracket by a hash of the email, so re-submitting with the
-        // same email overwrites the previous version (edits allowed until lock).
         const code = await emailHash(email);
+
+        // Block duplicate submissions — first submission is final.
+        const existing = await db.collection('picks').doc(code).get();
+        if (existing.exists) {
+          document.getElementById('submit-error').textContent = 'You\'ve already submitted! Use "View my score" to check your points.';
+          document.getElementById('submitBtn').disabled = false;
+          document.getElementById('submitBtn').textContent = 'Submit Bracket';
+          return;
+        }
 
         // Public bracket: name + picks only (no email — picks are world-readable).
         await db.collection('picks').doc(code).set({
@@ -1858,7 +1865,7 @@
         try { localStorage.setItem('myBracket', JSON.stringify({ code: code, name: name })); } catch (_) {}
 
         const successEl = document.getElementById('submit-success');
-        successEl.innerHTML = `✓ Bracket saved! Re-submit with the same email to update it (until brackets lock).<br><br>
+        successEl.innerHTML = `✓ Bracket submitted! Use "View my score" above to track your points as games are played.<br><br>
           Your bracket code:
           <div class="code-box">${code}</div>
           <a href="${bracketLink(code)}" style="color:#fff;text-decoration:underline;font-size:13px;">🔗 Your personal bracket link</a>
