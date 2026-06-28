@@ -1874,11 +1874,46 @@
     const PRIZES = ['🥇 TBA', '🥈 TBA', '🥉 TBA', '🎁 TBA', '🎁 TBA'];
 
 
+    // R32 kickoff times per slot (matches update-results.mjs R32 array order).
+    // Used to enforce per-match locking: picks submitted after kickoff don't score.
+    const R32_KICKOFFS = [
+      '2026-06-29T20:30:00Z', // 0  1E vs 3ABCDF
+      '2026-06-30T21:00:00Z', // 1  1I vs 3CDFGH
+      '2026-06-28T19:00:00Z', // 2  2A vs 2B      ← pre-launch, exempt
+      '2026-06-30T01:00:00Z', // 3  1F vs 2C
+      '2026-07-02T23:00:00Z', // 4  2K vs 2L
+      '2026-07-02T19:00:00Z', // 5  1H vs 2J
+      '2026-07-02T00:00:00Z', // 6  1D vs 3BEFIJ
+      '2026-07-01T20:00:00Z', // 7  1G vs 3AEHIJ
+      '2026-06-29T17:00:00Z', // 8  SA vs Canada  ← pre-launch, exempt
+      '2026-06-30T17:00:00Z', // 9  2E vs 2I
+      '2026-07-01T01:00:00Z', // 10 1A vs 3CEFHI
+      '2026-07-01T16:00:00Z', // 11 1L vs 3EHIJK
+      '2026-07-03T22:00:00Z', // 12 1J vs 2H
+      '2026-07-03T18:00:00Z', // 13 2D vs 2G
+      '2026-07-03T03:00:00Z', // 14 1B vs 3EFGIJ
+      '2026-07-04T01:30:00Z', // 15 1K vs 3DEIJL
+    ].map(d => new Date(d));
+
+    // Matches that kicked off at or before this time were already public at app launch —
+    // everyone can score for those slots regardless of when they submitted.
+    const PRE_LAUNCH_CUTOFF = new Date('2026-06-29T17:00:00Z');
+
     function calculateScore(picks) {
       let score = 0;
       let bd = { r32: 0, r16: 0, qf: 0, sf: 0, final: 0, thirdPlace: 0, champion: 0 };
 
-      (picks.r32 || []).forEach(t => { if (t && actualResults.r32.includes(t)) { score += 1; bd.r32++; } });
+      const subTime = picks.submittedAt
+        ? (picks.submittedAt.toDate ? picks.submittedAt.toDate() : new Date(picks.submittedAt))
+        : null;
+
+      (picks.r32 || []).forEach((t, i) => {
+        if (!t || !actualResults.r32.includes(t)) return;
+        const kickoff = R32_KICKOFFS[i];
+        // Post-launch matches: only score if submitted before kickoff
+        if (kickoff && kickoff > PRE_LAUNCH_CUTOFF && subTime && subTime >= kickoff) return;
+        score += 1; bd.r32++;
+      });
       (picks.r16 || []).forEach(t => { if (t && actualResults.r16.includes(t)) { score += 2; bd.r16++; } });
       (picks.qf || []).forEach(t => { if (t && actualResults.qf.includes(t)) { score += 4; bd.qf++; } });
       (picks.sf || []).forEach(t => { if (t && actualResults.sf.includes(t)) { score += 8; bd.sf++; } });
