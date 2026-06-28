@@ -8,13 +8,13 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      background: linear-gradient(135deg, #f0f4ff 0%, #e4edf8 100%);
       min-height: 100vh;
       padding: 20px;
-      color: #fff;
+      color: #1a1a2e;
     }
-    h1 { text-align: center; margin-bottom: 5px; }
-    .subtitle { color: #aaa; text-align: center; margin-bottom: 20px; font-size: 14px; }
+    h1 { text-align: center; margin-bottom: 5px; color: #1a1a2e; }
+    .subtitle { color: #667; text-align: center; margin-bottom: 20px; font-size: 14px; }
 
     nav {
       display: flex;
@@ -24,21 +24,21 @@
       flex-wrap: wrap;
     }
     nav a {
-      color: #fff;
+      color: #1a1a2e;
       text-decoration: none;
       padding: 10px 20px;
-      background: rgba(255,255,255,0.1);
+      background: rgba(0,0,0,0.07);
       border-radius: 20px;
       transition: background 0.3s;
       cursor: pointer;
     }
-    nav a:hover, nav a.active { background: #e94560; }
+    nav a:hover, nav a.active { background: #e94560; color: #fff; }
 
     .page { display: none; }
     .page.active { display: block; }
 
     .card {
-      background: rgba(255,255,255,0.95);
+      background: #fff;
       padding: 20px;
       border-radius: 12px;
       margin-bottom: 20px;
@@ -46,6 +46,7 @@
       max-width: 500px;
       margin-left: auto;
       margin-right: auto;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.08);
     }
     .card h2 { color: #16213e; margin-bottom: 15px; font-size: 18px; }
     .card input {
@@ -87,7 +88,7 @@
       font-size: 11px;
       text-transform: uppercase;
       letter-spacing: 1px;
-      color: #aaa;
+      color: #778;
       margin-bottom: 15px;
       text-align: center;
       white-space: nowrap;
@@ -125,7 +126,7 @@
 
     .match-time {
       font-size: 8px;
-      color: #e9a0ae;
+      color: #c0405a;
       text-align: center;
       margin-bottom: 2px;
       white-space: nowrap;
@@ -133,35 +134,37 @@
 
     /* Two-competitor matchup (click a team to advance it) */
     .matchup-pair {
-      border: 1px solid rgba(255,255,255,0.2);
+      border: 1px solid rgba(0,0,0,0.13);
       border-radius: 6px;
       overflow: hidden;
       min-width: 148px;
+      background: #fff;
     }
     .team-line {
       padding: 5px 9px;
       font-size: 11px;
       cursor: pointer;
-      background: rgba(255,255,255,0.06);
-      border-bottom: 1px solid rgba(255,255,255,0.12);
+      background: rgba(0,0,0,0.02);
+      border-bottom: 1px solid rgba(0,0,0,0.08);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
       transition: background 0.15s;
+      color: #1a1a2e;
     }
     .team-line:last-child { border-bottom: none; }
-    .team-line:hover { background: rgba(255,255,255,0.16); }
+    .team-line:hover { background: rgba(0,0,0,0.07); }
     .team-line.won { background: #e94560; color: #fff; font-weight: 600; }
-    .team-line.lost { opacity: 0.4; }
+    .team-line.lost { opacity: 0.35; }
     /* empty = non-clickable slot (no candidates); pick-hint = unfilled but clickable */
-    .team-line.empty { color: #888; font-style: italic; cursor: default; }
-    .team-line.empty:hover { background: rgba(255,255,255,0.06); }
-    .team-line.pick-hint { color: #9ab; font-style: italic; }
-    .team-line.pick-hint:hover { background: rgba(255,255,255,0.12); }
+    .team-line.empty { color: #aaa; font-style: italic; cursor: default; }
+    .team-line.empty:hover { background: rgba(0,0,0,0.02); }
+    .team-line.pick-hint { color: #7090b0; font-style: italic; }
+    .team-line.pick-hint:hover { background: rgba(0,0,0,0.05); }
 
     .team-slot {
-      background: rgba(255,255,255,0.1);
-      border: 2px solid rgba(255,255,255,0.2);
+      background: rgba(0,0,0,0.05);
+      border: 2px solid rgba(0,0,0,0.15);
       border-radius: 4px;
       padding: 6px 10px;
       min-width: 110px;
@@ -176,7 +179,7 @@
     }
 
     .team-slot:hover {
-      background: rgba(255,255,255,0.2);
+      background: rgba(0,0,0,0.1);
       border-color: #e94560;
     }
 
@@ -227,7 +230,7 @@
       top: 25%;
       height: 50%;
       width: 10px;
-      border: 2px solid rgba(255,255,255,0.3);
+      border: 2px solid rgba(0,0,0,0.18);
       border-left: none;
       border-radius: 0 4px 4px 0;
     }
@@ -239,7 +242,7 @@
       top: 50%;
       width: 10px;
       height: 2px;
-      background: rgba(255,255,255,0.3);
+      background: rgba(0,0,0,0.18);
     }
 
     /* Single horizontal connector (SF → Final) */
@@ -252,7 +255,7 @@
       content: '';
       width: 100%;
       height: 2px;
-      background: rgba(255,255,255,0.3);
+      background: rgba(0,0,0,0.18);
     }
 
     .champion-display {
@@ -459,7 +462,7 @@
 
     .instructions {
       text-align: center;
-      color: #aaa;
+      color: #445;
       margin-bottom: 15px;
       font-size: 12px;
       max-width: 700px;
@@ -474,10 +477,10 @@
       flex-wrap: wrap;
       margin-bottom: 15px;
       font-size: 10px;
-      color: #888;
+      color: #556;
     }
     .scoring-info span {
-      background: rgba(255,255,255,0.1);
+      background: rgba(0,0,0,0.07);
       padding: 3px 8px;
       border-radius: 10px;
     }
@@ -676,7 +679,7 @@
 
     <div id="deadline-banner" class="config-notice" style="display:none;"></div>
 
-    <div class="instructions" style="text-align:left; max-width:560px; line-height:1.6; color:#cfd3e0;">
+    <div class="instructions" style="text-align:left; max-width:560px; line-height:1.6; color:#445;">
       <strong style="color:#fff; font-size:14px;">How to play</strong>
       <ol style="margin:6px 0 0; padding-left:18px;">
         <li>Enter your <strong>name &amp; email</strong> above.</li>
