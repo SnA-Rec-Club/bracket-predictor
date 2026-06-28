@@ -88,7 +88,7 @@
     .card label { font-size: 13px; color: #6b7280; font-weight: 500; margin-top: 4px; display: block; }
 
     .bracket-container {
-      overflow-x: auto;
+      overflow-x: hidden;
       padding: 20px 0;
       display: flex;
       justify-content: center;
@@ -1047,6 +1047,12 @@
       }
     }
 
+    window.addEventListener('resize', () => {
+      fitBracket('user-bracket');
+      fitBracket('view-bracket');
+      fitBracket('admin-bracket');
+    });
+
     function init() {
       initFirebase();
       renderBracket(state, 'user-bracket', false);
@@ -1336,6 +1342,23 @@
       view.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
+    function fitBracket(id) {
+      if (window.innerWidth <= 768) return;
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.style.transform = '';
+      el.style.marginBottom = '';
+      const available = el.parentElement.clientWidth;
+      const natural = el.scrollWidth;
+      if (natural > available && available > 0) {
+        const scale = available / natural;
+        const h = el.offsetHeight;
+        el.style.transform = `scale(${scale})`;
+        el.style.transformOrigin = 'top left';
+        el.style.marginBottom = `-${h * (1 - scale)}px`;
+      }
+    }
+
     function renderBracket(data, containerId, isAdmin, results = null) {
       const container = document.getElementById(containerId);
       container.innerHTML = '';
@@ -1381,6 +1404,7 @@
       container.appendChild(rightR16);
       container.appendChild(connR32R);
       container.appendChild(rightR32);
+      fitBracket(containerId);
     }
 
     // The two competitors of a matchup. For R32 a side is: a confirmed team
