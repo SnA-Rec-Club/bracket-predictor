@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>World Cup 2026 Bracket Predictor</title>
+  <title>SnA World Cup 2026</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -441,6 +441,7 @@
     .rank-1 { background: linear-gradient(90deg, #ffd70033, transparent); }
     .rank-2 { background: linear-gradient(90deg, #c0c0c033, transparent); }
     .rank-3 { background: linear-gradient(90deg, #cd7f3233, transparent); }
+    .rank-prize { background: linear-gradient(90deg, #e9456012, transparent); }
     .medal { font-size: 16px; }
     .score { font-weight: bold; color: #e94560; }
     .breakdown { font-size: 9px; color: #888; }
@@ -648,14 +649,13 @@
   </style>
 </head>
 <body>
-  <h1>⚽ World Cup 2026</h1>
+  <h1>⚽ SnA World Cup 2026</h1>
   <p class="subtitle">Knockout Bracket Predictor</p>
 
   <nav>
     <a class="active" onclick="showPage('submit')">My Bracket</a>
     <a onclick="showPage('leaderboard')">Leaderboard</a>
     <a onclick="showPage('find')">Find Bracket</a>
-    <a onclick="showPage('admin')">Admin</a>
   </nav>
 
   <div id="submit-page" class="page active">
@@ -724,25 +724,13 @@
   <div id="leaderboard-page" class="page">
     <div class="card" style="max-width:900px;">
       <h2>🏆 Leaderboard</h2>
+      <p style="color:#888;font-size:12px;margin-bottom:15px;">🎁 Top 5 win a prize at the <strong style="color:#e94560;">Fruit Festival · 24 Jul</strong></p>
       <div id="leaderboard-content">
         <div class="loading"><div class="spinner"></div>Loading...</div>
       </div>
     </div>
   </div>
 
-  <div id="admin-page" class="page">
-    <div class="card" style="max-width:900px;">
-      <h2>🔐 Admin - Enter Results</h2>
-      <p style="color:#666;font-size:12px;margin-bottom:15px;">Enter actual results as tournament progresses.</p>
-      <div class="bracket-container">
-        <div class="bracket" id="admin-bracket"></div>
-      </div>
-      <div class="actions">
-        <button onclick="saveResults()">Save Results</button>
-      </div>
-      <div id="admin-success" class="success" style="display:none;">Results saved!</div>
-    </div>
-  </div>
 
   <div id="find-page" class="page">
     <div class="card">
@@ -992,7 +980,6 @@
     function init() {
       initFirebase();
       renderBracket(state, 'user-bracket', false);
-      renderBracket(actualResults, 'admin-bracket', true);
       applyStep();
 
       // Pre-fill the Find page with a previously saved code (same device).
@@ -1829,6 +1816,9 @@
       }
     }
 
+    // Prizes for top 5 — update these when decided (shown on the leaderboard)
+    const PRIZES = ['🥇 TBA', '🥈 TBA', '🥉 TBA', '🎁 TBA', '🎁 TBA'];
+
     function calculateScore(picks) {
       let score = 0;
       let bd = { r32: 0, r16: 0, qf: 0, sf: 0, final: 0, thirdPlace: 0, champion: 0 };
@@ -1868,16 +1858,18 @@
         picks.sort((a, b) => b.score - a.score);
 
         let html = `<table class="leaderboard-table">
-          <thead><tr><th>#</th><th>Name</th><th>Score</th><th>R32</th><th>R16</th><th>QF</th><th>SF</th><th>F</th><th>3rd</th><th>C</th></tr></thead><tbody>`;
+          <thead><tr><th>#</th><th>Name</th><th>Score</th><th>Prize</th><th>R32</th><th>R16</th><th>QF</th><th>SF</th><th>F</th><th>3rd</th><th>C</th></tr></thead><tbody>`;
 
         picks.forEach((p, i) => {
           const rank = i + 1;
           const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
-          const rc = rank <= 3 ? `rank-${rank}` : '';
+          const rc = rank <= 3 ? `rank-${rank}` : rank <= 5 ? 'rank-prize' : '';
+          const prize = PRIZES[i] || '—';
           html += `<tr class="${rc}">
             <td><span class="medal">${medal}</span></td>
             <td>${p.name}</td>
             <td class="score">${p.score}</td>
+            <td class="breakdown" style="color:#e94560;font-weight:600;">${prize}</td>
             <td class="breakdown">${p.breakdown.r32}/16</td>
             <td class="breakdown">${p.breakdown.r16}/8</td>
             <td class="breakdown">${p.breakdown.qf}/4</td>
@@ -1912,33 +1904,12 @@
           // Live R32 matchups resolved from actual group results (optional).
           r32Fixtures = Array.isArray(d.r32Fixtures) ? d.r32Fixtures : Array(16).fill(null);
         }
-        renderBracket(actualResults, 'admin-bracket', true);
-        // Re-render the user bracket too so resolved R32 matchups show real teams.
+        // Re-render the user bracket so resolved R32 matchups show real teams.
         renderBracket(state, 'user-bracket', false);
         applyStep();
       } catch (e) { console.error(e); }
     }
 
-    async function saveResults() {
-      if (!firebaseConfigured) { alert('Firebase not configured.'); return; }
-      try {
-        await db.collection('config').doc('results').set({
-          r32: actualResults.r32,
-          r16: actualResults.r16,
-          qf: actualResults.qf,
-          sf: actualResults.sf,
-          final: actualResults.final,
-          champion: actualResults.champion,
-          thirdPlace: actualResults.thirdPlace,
-          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-        document.getElementById('admin-success').style.display = 'block';
-        setTimeout(() => document.getElementById('admin-success').style.display = 'none', 3000);
-      } catch (e) {
-        console.error(e);
-        alert('Error saving.');
-      }
-    }
 
     init();
   </script>
