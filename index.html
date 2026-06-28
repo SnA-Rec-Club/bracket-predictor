@@ -345,6 +345,13 @@
       font-weight: normal;
     }
 
+    /* View mode: a wrong champion pick shows red instead of celebratory gold. */
+    .champion-slot.picked-wrong {
+      background: #fee2e2;
+      border-color: #fca5a5;
+      color: #dc2626;
+    }
+
     .champion-slot:hover {
       transform: scale(1.05);
       box-shadow: 0 0 20px rgba(255,215,0,0.4);
@@ -1605,7 +1612,13 @@
         const isThird = resultKey === 'thirdPlace';
         const known = isThird ? thirdResultsKnown : sfResultsKnown;
         const mk = (team, side) => {
-          if (results) return mkResult(team, isThird ? 'thirdPlace' : 'final', known) || `<div class="team-line empty">–</div>`;
+          if (results) {
+            if (!team) return `<div class="team-line empty">–</div>`;
+            // 3rd place: only the loser the user actually picked should be
+            // highlighted; the other SF loser stays neutral.
+            if (isThird && team !== winner) return `<div class="team-line">${formatTeam(team)}</div>`;
+            return mkResult(team, isThird ? 'thirdPlace' : 'final', known) || `<div class="team-line empty">–</div>`;
+          }
           if (!team) return `<div class="team-line empty">–</div>`;
           const won = winner && winner === team;
           const lost = winner && !won;
