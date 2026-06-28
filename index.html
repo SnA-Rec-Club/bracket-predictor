@@ -748,7 +748,7 @@
       <span>3rd: 8pts</span>
       <span>Champ: 20pts</span>
       <span>Max: 99pts</span>
-      <span style="background:#f0fdf4;border-color:#bbf7d0;color:#059669;">🎁 +1 free pt (SA vs Canada)</span>
+      <span style="background:#f0fdf4;border-color:#bbf7d0;color:#059669;">💡 SA vs Canada result already known — pick correctly for a free point!</span>
     </div>
 
     <div class="stepper-controls" id="stepper-controls">
@@ -1873,13 +1873,10 @@
     // Prizes for top 5 — update these when decided (shown on the leaderboard)
     const PRIZES = ['🥇 TBA', '🥈 TBA', '🥉 TBA', '🎁 TBA', '🎁 TBA'];
 
-    // Free points credited to all users for matches that kicked off before the app launched.
-    // SA vs Canada (R32, 29 Jun) happened before release — everyone gets +1.
-    const BONUS_POINTS = 1;
 
     function calculateScore(picks) {
-      let score = BONUS_POINTS;
-      let bd = { r32: BONUS_POINTS, r16: 0, qf: 0, sf: 0, final: 0, thirdPlace: 0, champion: 0 };
+      let score = 0;
+      let bd = { r32: 0, r16: 0, qf: 0, sf: 0, final: 0, thirdPlace: 0, champion: 0 };
 
       (picks.r32 || []).forEach(t => { if (t && actualResults.r32.includes(t)) { score += 1; bd.r32++; } });
       (picks.r16 || []).forEach(t => { if (t && actualResults.r16.includes(t)) { score += 2; bd.r16++; } });
