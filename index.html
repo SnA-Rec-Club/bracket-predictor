@@ -105,11 +105,8 @@
       position: relative;
     }
 
-    /* Matchup spacing per round */
-    .round-r32 .matchups { gap: 4px; }
-    .round-r16 .matchups { gap: 36px; }
-    .round-qf .matchups { gap: 104px; }
-    .round-sf .matchups { gap: 240px; }
+    /* Matchup spacing: overridden to 0 on desktop (space-around handles it);
+       mobile uses 8px !important override. Leave 0 as default. */
     .round-final .matchups { gap: 0; }
 
     .matchup {
@@ -139,7 +136,7 @@
       border: 1px solid rgba(255,255,255,0.2);
       border-radius: 6px;
       overflow: hidden;
-      min-width: 122px;
+      min-width: 148px;
     }
     .team-line {
       padding: 5px 9px;
@@ -156,8 +153,11 @@
     .team-line:hover { background: rgba(255,255,255,0.16); }
     .team-line.won { background: #e94560; color: #fff; font-weight: 600; }
     .team-line.lost { opacity: 0.4; }
+    /* empty = non-clickable slot (no candidates); pick-hint = unfilled but clickable */
     .team-line.empty { color: #888; font-style: italic; cursor: default; }
     .team-line.empty:hover { background: rgba(255,255,255,0.06); }
+    .team-line.pick-hint { color: #9ab; font-style: italic; }
+    .team-line.pick-hint:hover { background: rgba(255,255,255,0.12); }
 
     .team-slot {
       background: rgba(255,255,255,0.1);
@@ -203,35 +203,21 @@
       width: 20px;
       display: flex;
       flex-direction: column;
-      justify-content: space-around;
       flex-shrink: 0;
     }
 
-    .connector-pair {
+    /* Spacer matches round-title height+margin so pairs align with matchups */
+    .connector-spacer { flex-shrink: 0; }
+
+    /* Inner div fills remaining height; pairs share it equally via flex:1 */
+    .connector-inner {
+      flex: 1;
       display: flex;
       flex-direction: column;
-      align-items: flex-start;
+    }
+
+    .connector-pair {
       position: relative;
-    }
-
-    /* R32 to R16 connectors */
-    .conn-r32 .connector-pair {
-      height: 68px;
-    }
-
-    /* R16 to QF connectors */
-    .conn-r16 .connector-pair {
-      height: 136px;
-    }
-
-    /* QF to SF connectors */
-    .conn-qf .connector-pair {
-      height: 272px;
-    }
-
-    /* SF to Final connectors */
-    .conn-sf .connector-pair {
-      height: 408px;
     }
 
     .connector-pair::before {
@@ -252,6 +238,19 @@
       left: 10px;
       top: 50%;
       width: 10px;
+      height: 2px;
+      background: rgba(255,255,255,0.3);
+    }
+
+    /* Single horizontal connector (SF → Final) */
+    .connector-center-line {
+      flex: 1;
+      display: flex;
+      align-items: center;
+    }
+    .connector-center-line::after {
+      content: '';
+      width: 100%;
       height: 2px;
       background: rgba(255,255,255,0.3);
     }
@@ -558,16 +557,17 @@
     .step-label #step-count { color: #aaa; font-size: 11px; }
 
     /* Desktop bracket alignment: equal-height rounds + space-around so each
-       round's matchups auto-center between the previous round's pairs. */
+       round's matchups auto-center between the previous round's pairs.
+       Connector spacer (53px) = round-title min-height (38px) + margin-bottom (15px),
+       so connector-pairs start at the same vertical offset as the matchups they link. */
     @media (min-width: 769px) {
       .bracket { align-items: stretch; }
       .round { min-height: 800px; }
       .round-title { min-height: 38px; flex-shrink: 0; }
       .matchups { flex: 1; gap: 0 !important; justify-content: space-around; }
-      /* Connector columns become plain spacers; the bracket lines were tied to
-         the old fixed gaps and can't stay aligned, so hide them. */
-      .connector-pair::before,
-      .connector-pair::after { display: none; }
+      /* Connectors: spacer aligns pairs with matchup area; flex:1 pairs fill equally */
+      .connector-spacer { height: 53px; }
+      .connector-pair { flex: 1; }
       /* Final column: the final matchup centers like other rounds (.matchups
          flex:1), and the champion + 3rd-place sit absolutely below it so they
          don't pull the matchup off the semifinal line. */
@@ -674,12 +674,17 @@
       <div id="load-msg" style="font-size:12px;text-align:center;margin-top:6px;"></div>
     </div>
 
-    <div id="lock-note" class="config-notice" style="display:none;background:#f8d7da;border-color:#dc3545;color:#721c24;"></div>
+    <div id="deadline-banner" class="config-notice" style="display:none;"></div>
 
-    <p class="instructions">
-      Click slots to pick winners. R32 matchups follow the official FIFA bracket structure.<br>
-      Pick from teams based on their group position (1st, 2nd, or best 3rd place).
-    </p>
+    <div class="instructions" style="text-align:left; max-width:560px; line-height:1.6; color:#cfd3e0;">
+      <strong style="color:#fff; font-size:14px;">How to play</strong>
+      <ol style="margin:6px 0 0; padding-left:18px;">
+        <li>Enter your <strong>name &amp; email</strong> above.</li>
+        <li>Go round by round and <strong>tap the team you think advances</strong> — it turns red. In the <strong>Round of 32</strong>, first tap a spot to choose who you think finishes there (e.g. who is &ldquo;1C&rdquo;), then tap them again to advance them.</li>
+        <li>Pick through to the <strong>Champion</strong> and the <strong>3rd-place</strong> game, then hit <strong>Submit</strong>.</li>
+      </ol>
+      <div style="margin-top:6px;">Re-submit with the <strong>same email</strong> to change your picks anytime before the deadline. You&rsquo;ll get a code to view your bracket later (Find Bracket tab).</div>
+    </div>
 
     <div class="scoring-info">
       <span>R32: 1pt</span>
@@ -1139,15 +1144,29 @@
       try {
         const doc = await db.collection('config').doc('settings').get();
         const lockAt = (doc.exists && doc.data().lockAt && doc.data().lockAt.toDate) ? doc.data().lockAt.toDate() : null;
-        if (lockAt && new Date() >= lockAt) {
+        const banner = document.getElementById('deadline-banner');
+        if (!lockAt) return; // no deadline set yet
+
+        const now = new Date();
+        const when = lockAt.toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+
+        if (now >= lockAt) {
           bracketsLocked = true;
           const btn = document.getElementById('submitBtn');
           btn.disabled = true;
-          btn.textContent = 'Brackets Locked';
-          const note = document.getElementById('lock-note');
-          note.textContent = `🔒 Brackets locked since ${lockAt.toLocaleString()}. Submissions are closed.`;
-          note.style.display = 'block';
+          btn.textContent = 'Picks Locked';
+          banner.style.cssText = 'background:#f8d7da;border-color:#dc3545;color:#721c24;';
+          banner.innerHTML = `🔒 <strong>Picks are locked</strong> — closed ${when}. Scores update as games finish.`;
+        } else {
+          const ms = lockAt - now;
+          const d = Math.floor(ms / 86400000);
+          const h = Math.floor((ms % 86400000) / 3600000);
+          const m = Math.floor((ms % 3600000) / 60000);
+          const left = d > 0 ? `${d}d ${h}h` : `${h}h ${m}m`;
+          banner.style.cssText = ''; // default yellow notice
+          banner.innerHTML = `⏰ <strong>Picks lock ${when}</strong> &middot; ${left} left to submit or edit.`;
         }
+        banner.style.display = 'block';
       } catch (e) { console.warn('Lock check failed:', e); }
     }
 
@@ -1286,8 +1305,8 @@
           };
         };
         return {
-          home: mk(fx ? fx.home : null, pred.home, struct.home, sideLabels[0]),
-          away: mk(fx ? fx.away : null, pred.away, struct.away, sideLabels[1])
+          home: mk(fx ? fx.home : null, pred.home, struct.home, getPositionLabel(struct.home)),
+          away: mk(fx ? fx.away : null, pred.away, struct.away, getPositionLabel(struct.away))
         };
       }
       const prev = getPrevRound(round);
@@ -1368,7 +1387,9 @@
           const clickable = s.candidates.length > 0;
           const isWon = winner && s.filled && s.team === winner;
           const isLost = winner && s.filled && !isWon;
-          const cls = `team-line ${isWon ? 'won' : ''} ${isLost ? 'lost' : ''} ${clickable ? '' : 'empty'}`;
+          // pick-hint: slot is clickable but user hasn't filled it yet (shows position label in italic)
+          const stateClass = !clickable ? 'empty' : (!s.filled ? 'pick-hint' : '');
+          const cls = `team-line ${isWon ? 'won' : ''} ${isLost ? 'lost' : ''} ${stateClass}`;
           const click = clickable ? `onclick="pickSide('${roundKey}',${i},'${sideName}',${isAdmin})"` : '';
           return `<div class="${cls}" ${click}>${s.label}</div>`;
         };
@@ -1391,13 +1412,22 @@
       const conn = document.createElement('div');
       conn.className = `connector ${className}`;
 
+      // Spacer matches round-title offset so pairs align with the matchup area
+      const spacer = document.createElement('div');
+      spacer.className = 'connector-spacer';
+      conn.appendChild(spacer);
+
+      const inner = document.createElement('div');
+      inner.className = 'connector-inner';
+
       for (let i = 0; i < pairCount; i++) {
         const pair = document.createElement('div');
         pair.className = 'connector-pair';
         if (reverse) pair.style.transform = 'scaleX(-1)';
-        conn.appendChild(pair);
+        inner.appendChild(pair);
       }
 
+      conn.appendChild(inner);
       return conn;
     }
 
@@ -1406,10 +1436,18 @@
       conn.className = `connector ${className}`;
       conn.style.width = '15px';
 
-      const line = document.createElement('div');
-      line.style.cssText = 'width:100%;height:2px;background:rgba(255,255,255,0.3);';
-      conn.appendChild(line);
+      const spacer = document.createElement('div');
+      spacer.className = 'connector-spacer';
+      conn.appendChild(spacer);
 
+      const inner = document.createElement('div');
+      inner.className = 'connector-inner';
+
+      const line = document.createElement('div');
+      line.className = 'connector-center-line';
+      inner.appendChild(line);
+
+      conn.appendChild(inner);
       return conn;
     }
 

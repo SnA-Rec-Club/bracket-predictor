@@ -13,6 +13,10 @@ on:
         description: 'Manual R32 group-winner overrides, e.g. "1E=Germany, 1A=Mexico, 1D=USA"'
         type: string
         default: ''
+      lock_at:
+        description: 'Set the submission deadline (ISO UTC, e.g. 2026-06-29T15:59:00Z). Blank = leave unchanged.'
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -37,5 +41,6 @@ jobs:
           FOOTBALL_DATA_TOKEN: ${{ secrets.FOOTBALL_DATA_TOKEN }}
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           OVERRIDES: ${{ inputs.r32_overrides }}
+          LOCK_AT: ${{ inputs.lock_at }}
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}
         run: node update-results.mjs

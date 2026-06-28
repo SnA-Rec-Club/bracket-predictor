@@ -18,6 +18,7 @@ const TOKEN = process.env.FOOTBALL_DATA_TOKEN;
 const SA = process.env.FIREBASE_SERVICE_ACCOUNT;
 const DRY_RUN = process.env.DRY_RUN === 'true';
 const OVERRIDES = process.env.OVERRIDES || ''; // manual R32 overrides, e.g. "1E=Germany, 1A=Mexico"
+const LOCK_AT = process.env.LOCK_AT || '';     // submission deadline, ISO UTC; blank = unchanged
 const API = 'https://api.football-data.org/v4';
 const COMP = 'WC'; // FIFA World Cup competition code
 
@@ -217,10 +218,14 @@ async function main() {
   if (r32Fixtures.some(Boolean)) payload.r32Fixtures = r32Fixtures;
   await db.collection('config').doc('results').set(payload, { merge: true });
 
-  await db.collection('config').doc('settings').set({
-    roundKickoffs,
-    updatedAt: FieldValue.serverTimestamp(),
-  }, { merge: true });
+  const settings = { roundKickoffs, updatedAt: FieldValue.serverTimestamp() };
+  if (LOCK_AT) {
+    const d = new Date(LOCK_AT);
+    if (isNaN(d.getTime())) { console.error(`Invalid LOCK_AT: ${LOCK_AT}`); process.exit(1); }
+    settings.lockAt = admin.firestore.Timestamp.fromDate(d);
+    console.log(`Setting submission deadline (lockAt) to ${d.toISOString()}`);
+  }
+  await db.collection('config').doc('settings').set(settings, { merge: true });
 
   console.log('Wrote config/results and config/settings.');
 }
