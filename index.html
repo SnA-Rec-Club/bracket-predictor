@@ -200,6 +200,13 @@
     .team-line.empty { color: #d1d5db; font-style: italic; cursor: default; }
     .team-line.empty:hover { background: transparent; }
     .team-line.pick-hint { color: #2563eb; font-style: italic; opacity: 0.75; }
+    /* view-mode result highlighting */
+    .team-line.picked-correct { background: #059669; color: #fff; font-weight: 600; cursor: default; }
+    .team-line.picked-correct:hover { background: #059669; }
+    .team-line.picked-wrong { background: #fee2e2; color: #dc2626; cursor: default; }
+    .team-line.picked-wrong:hover { background: #fee2e2; }
+    .team-line.picked-pending { cursor: default; }
+    .team-line.picked-pending:hover { background: transparent; }
     .team-line.pick-hint:hover { background: rgba(0,0,0,0.05); }
 
     .team-slot {
@@ -1277,7 +1284,7 @@
       document.getElementById('find-view-title').textContent =
         `${data.name || 'Bracket'} — Champion: ${data.champion ? formatTeam(data.champion) : '—'}`;
       document.getElementById('find-view-sub').textContent = when ? `Submitted ${when}` : '';
-      renderBracket(data, 'view-bracket', false);
+      renderBracket(data, 'view-bracket', false, actualResults);
       // Make the view truly inert: strip the pick handlers so nothing can fire
       // (pointer-events:none already blocks real clicks; this covers the rest).
       document.querySelectorAll('#view-bracket [onclick]').forEach(el => el.removeAttribute('onclick'));
@@ -1285,32 +1292,32 @@
       view.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
-    function renderBracket(data, containerId, isAdmin) {
+    function renderBracket(data, containerId, isAdmin, results = null) {
       const container = document.getElementById(containerId);
       container.innerHTML = '';
 
       // Left side: R32(0-7) → R16(0-3) → QF(0-1) → SF(0)
-      const leftR32 = createRoundColumn('Round of 32', '1pt', 'r32', data, [0,1,2,3,4,5,6,7], isAdmin, true);
+      const leftR32 = createRoundColumn('Round of 32', '1pt', 'r32', data, [0,1,2,3,4,5,6,7], isAdmin, true, results);
       const connR32L = createConnector('conn-r32', 4);
-      const leftR16 = createRoundColumn('Round of 16', '2pts', 'r16', data, [0,1,2,3], isAdmin);
+      const leftR16 = createRoundColumn('Round of 16', '2pts', 'r16', data, [0,1,2,3], isAdmin, false, results);
       const connR16L = createConnector('conn-r16', 2);
-      const leftQF = createRoundColumn('Quarterfinals', '4pts', 'qf', data, [0,1], isAdmin);
+      const leftQF = createRoundColumn('Quarterfinals', '4pts', 'qf', data, [0,1], isAdmin, false, results);
       const connQFL = createConnector('conn-qf', 1);
-      const leftSF = createRoundColumn('Semifinals', '8pts', 'sf', data, [0], isAdmin);
+      const leftSF = createRoundColumn('Semifinals', '8pts', 'sf', data, [0], isAdmin, false, results);
       const connSFL = createConnectorSingle('conn-sf');
 
       // Final & Champion (center)
-      const finalCol = createFinalColumn(data, isAdmin);
+      const finalCol = createFinalColumn(data, isAdmin, results);
 
       // Right side: SF(1) ← QF(2-3) ← R16(4-7) ← R32(8-15)
       const connSFR = createConnectorSingle('conn-sf', true);
-      const rightSF = createRoundColumn('Semifinals', '8pts', 'sf', data, [1], isAdmin);
+      const rightSF = createRoundColumn('Semifinals', '8pts', 'sf', data, [1], isAdmin, false, results);
       const connQFR = createConnector('conn-qf', 1, true);
-      const rightQF = createRoundColumn('Quarterfinals', '4pts', 'qf', data, [2,3], isAdmin);
+      const rightQF = createRoundColumn('Quarterfinals', '4pts', 'qf', data, [2,3], isAdmin, false, results);
       const connR16R = createConnector('conn-r16', 2, true);
-      const rightR16 = createRoundColumn('Round of 16', '2pts', 'r16', data, [4,5,6,7], isAdmin);
+      const rightR16 = createRoundColumn('Round of 16', '2pts', 'r16', data, [4,5,6,7], isAdmin, false, results);
       const connR32R = createConnector('conn-r32', 4, true);
-      const rightR32 = createRoundColumn('Round of 32', '1pt', 'r32', data, [8,9,10,11,12,13,14,15], isAdmin, true);
+      const rightR32 = createRoundColumn('Round of 32', '1pt', 'r32', data, [8,9,10,11,12,13,14,15], isAdmin, true, results);
 
       // Append all elements
       container.appendChild(leftR32);
@@ -1416,7 +1423,7 @@
       pickTeam(s.team);
     }
 
-    function createRoundColumn(title, points, roundKey, data, indices, isAdmin, isR32 = false) {
+    function createRoundColumn(title, points, roundKey, data, indices, isAdmin, isR32 = false, results = null) {
       const round = document.createElement('div');
       round.className = `round round-${roundKey}`;
       round.innerHTML = `<div class="round-title">${title}<br><span class="points">${points}</span></div>`;
@@ -1433,12 +1440,21 @@
         const time = matchInfo(roundKey, i);
 
         const line = (s, sideName) => {
-          const clickable = s.candidates.length > 0;
-          const isWon = winner && s.filled && s.team === winner;
-          const isLost = winner && s.filled && !isWon;
-          // pick-hint: slot is clickable but user hasn't filled it yet (shows position label in italic)
-          const stateClass = !clickable ? 'empty' : (!s.filled ? 'pick-hint' : '');
-          const cls = `team-line ${isWon ? 'won' : ''} ${isLost ? 'lost' : ''} ${stateClass}`;
+          const clickable = !results && s.candidates.length > 0;
+          const isWon = !results && winner && s.filled && s.team === winner;
+          const isLost = !results && winner && s.filled && !isWon;
+
+          let resultClass = '';
+          if (results && s.filled && s.team) {
+            const known = Array.isArray(results[roundKey]) && results[roundKey].length > 0;
+            if (known) resultClass = results[roundKey].includes(s.team) ? 'picked-correct' : 'picked-wrong';
+            else resultClass = 'picked-pending';
+          }
+
+          const stateClass = results
+            ? (s.filled ? '' : 'empty')
+            : (!clickable ? 'empty' : (!s.filled ? 'pick-hint' : ''));
+          const cls = ['team-line', isWon?'won':'', isLost?'lost':'', stateClass, resultClass].filter(Boolean).join(' ');
           const click = clickable ? `onclick="pickSide('${roundKey}',${i},'${sideName}',${isAdmin})"` : '';
           return `<div class="${cls}" ${click}>${s.label}</div>`;
         };
@@ -1500,17 +1516,34 @@
       return conn;
     }
 
-    function createFinalColumn(data, isAdmin) {
+    function createFinalColumn(data, isAdmin, results = null) {
       const col = document.createElement('div');
       col.className = 'round round-final';
 
-      // The Final is the two semifinal winners; click one to crown the champion.
-      // 3rd place is the two semifinal losers.
       const sfLosers = getSFLosers(data);
 
-      // Two stacked competitors; `winner` (champion or 3rd) highlights.
-      const pair = (a, b, winner, handler) => {
+      // In view mode: colour each finalist/3rd-place pick correct/wrong vs actualResults.
+      const mkResult = (team, resultKey, isSet) => {
+        if (!team) return `<div class="team-line empty">–</div>`;
+        if (!results) return null; // fall through to normal pair()
+        let cls = 'team-line picked-pending';
+        if (isSet) {
+          const correct = Array.isArray(results[resultKey])
+            ? results[resultKey].includes(team)
+            : results[resultKey] === team;
+          cls = `team-line ${correct ? 'picked-correct' : 'picked-wrong'}`;
+        }
+        return `<div class="${cls}">${formatTeam(team)}</div>`;
+      };
+
+      // Two stacked competitors; `winner` (champion or 3rd) highlights (non-view mode).
+      const pair = (a, b, winner, handler, resultKey) => {
+        const sfResultsKnown = results && Array.isArray(results.final) && results.final.length > 0;
+        const thirdResultsKnown = results && results.thirdPlace != null;
+        const isThird = resultKey === 'thirdPlace';
+        const known = isThird ? thirdResultsKnown : sfResultsKnown;
         const mk = (team, side) => {
+          if (results) return mkResult(team, isThird ? 'thirdPlace' : 'final', known) || `<div class="team-line empty">–</div>`;
           if (!team) return `<div class="team-line empty">–</div>`;
           const won = winner && winner === team;
           const lost = winner && !won;
@@ -1519,18 +1552,24 @@
         return `<div class="matchup"><div class="matchup-pair">${mk(a, 'home')}${mk(b, 'away')}</div></div>`;
       };
 
+      const champKnown = results && results.champion != null;
+      const champCorrect = champKnown && results.champion === data.champion;
+      const champCls = results
+        ? (champKnown ? (champCorrect ? 'picked-correct' : 'picked-wrong') : 'picked-pending')
+        : '';
+
       col.innerHTML = `
         <div class="round-title">Final<br><span class="points">12pts</span></div>
         <div class="matchups">
           <div>
             <div class="match-time">${matchInfo('final', 0)}</div>
-            ${pair(data.sf[0], data.sf[1], data.champion, 'pickFinalSide')}
+            ${pair(data.sf[0], data.sf[1], data.champion, 'pickFinalSide', 'final')}
           </div>
         </div>
         <div class="champion-display">
           <div class="trophy">🏆</div>
           <div class="round-title" style="margin:5px 0;">Champion<br><span class="points">20pts</span></div>
-          <div class="champion-slot ${data.champion ? '' : 'empty'}" style="cursor:default;">
+          <div class="champion-slot ${data.champion ? champCls : 'empty'}" style="cursor:default;">
             ${data.champion ? formatTeam(data.champion) : '—'}
           </div>
         </div>
@@ -1538,7 +1577,7 @@
           <div class="round-title" style="margin-top:15px;">3rd Place<br><span class="points">8pts</span></div>
           <div class="match-time">${matchInfo('third', 0)}</div>
           ${sfLosers.length === 2
-            ? pair(sfLosers[0], sfLosers[1], data.thirdPlace, 'pickThirdSide')
+            ? pair(sfLosers[0], sfLosers[1], data.thirdPlace, 'pickThirdSide', 'thirdPlace')
             : '<div class="third-teams">SF losers</div>'}
         </div>
       `;
