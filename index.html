@@ -717,23 +717,10 @@
       ⚠️ Firebase not configured. Edit <code>config.js</code> to save submissions.
     </div>
 
-    <div class="card">
-      <h2>Your Info</h2>
-      <label>Name</label>
-      <input type="text" id="name" placeholder="Enter your name">
-      <label>Email</label>
-      <input type="email" id="email" placeholder="Enter your email">
-      <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Submitting again with the same email updates your bracket (until it locks).</p>
-      <button onclick="loadMyBracket()" class="btn-secondary" style="width:100%;margin-top:10px;padding:10px;font-size:14px;">↺ Load my saved bracket (to edit)</button>
-      <div id="load-msg" style="font-size:12px;text-align:center;margin-top:6px;"></div>
-    </div>
-
-    <div id="deadline-banner" class="config-notice" style="display:none;"></div>
-
     <div class="instructions" style="text-align:left; max-width:560px; line-height:1.6; color:#64748b;">
       <strong style="color:#1e293b; font-size:14px;">How to play</strong>
       <ol style="margin:6px 0 0; padding-left:18px;">
-        <li>Enter your <strong>name &amp; email</strong> above.</li>
+        <li>Enter your <strong>name &amp; email</strong> below.</li>
         <li>Go round by round and <strong>tap the team you think advances</strong> — it turns green. In the <strong>Round of 32</strong>, first tap a spot to choose who you think finishes there (e.g. who is &ldquo;1C&rdquo;), then tap them again to advance them.</li>
         <li>Pick through to the <strong>Champion</strong> and the <strong>3rd-place</strong> game, then hit <strong>Submit</strong>.</li>
       </ol>
@@ -755,6 +742,19 @@
     <div style="max-width:560px;margin:10px auto 0;padding:10px 14px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;font-size:13px;color:#92400e;line-height:1.5;">
       ⚡ <strong>Submit early to maximise your score!</strong> Each R32 match locks individually when it kicks off — if you submit after a game has started, that pick won't count. The overall deadline is <strong>Fri 3 Jul, 8pm SGT</strong>, but earlier is better.
     </div>
+
+    <div class="card">
+      <h2>Your Info</h2>
+      <label>Name</label>
+      <input type="text" id="name" placeholder="Enter your name">
+      <label>Email</label>
+      <input type="email" id="email" placeholder="Enter your email">
+      <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Submitting again with the same email updates your bracket (until it locks).</p>
+      <button onclick="loadMyBracket()" class="btn-secondary" style="width:100%;margin-top:10px;padding:10px;font-size:14px;">↺ Load my saved bracket (to edit)</button>
+      <div id="load-msg" style="font-size:12px;text-align:center;margin-top:6px;"></div>
+    </div>
+
+    <div id="deadline-banner" class="config-notice" style="display:none;"></div>
 
     <div class="stepper-controls" id="stepper-controls">
       <button class="step-btn" id="step-prev" onclick="stepPrev()">← Back</button>
