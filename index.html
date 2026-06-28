@@ -733,7 +733,7 @@
       <strong style="color:#1e293b; font-size:14px;">How to play</strong>
       <ol style="margin:6px 0 0; padding-left:18px;">
         <li>Enter your <strong>name &amp; email</strong> above.</li>
-        <li>Go round by round and <strong>tap the team you think advances</strong> — it turns red. In the <strong>Round of 32</strong>, first tap a spot to choose who you think finishes there (e.g. who is &ldquo;1C&rdquo;), then tap them again to advance them.</li>
+        <li>Go round by round and <strong>tap the team you think advances</strong> — it turns green. In the <strong>Round of 32</strong>, first tap a spot to choose who you think finishes there (e.g. who is &ldquo;1C&rdquo;), then tap them again to advance them.</li>
         <li>Pick through to the <strong>Champion</strong> and the <strong>3rd-place</strong> game, then hit <strong>Submit</strong>.</li>
       </ol>
       <div style="margin-top:6px;">Re-submit with the <strong>same email</strong> to change your picks anytime before the deadline. You&rsquo;ll get a code to view your bracket later (Find Bracket tab).</div>
@@ -748,6 +748,7 @@
       <span>3rd: 8pts</span>
       <span>Champ: 20pts</span>
       <span>Max: 99pts</span>
+      <span style="background:#f0fdf4;border-color:#bbf7d0;color:#059669;">🎁 +1 free pt (SA vs Canada)</span>
     </div>
 
     <div class="stepper-controls" id="stepper-controls">
@@ -1872,9 +1873,13 @@
     // Prizes for top 5 — update these when decided (shown on the leaderboard)
     const PRIZES = ['🥇 TBA', '🥈 TBA', '🥉 TBA', '🎁 TBA', '🎁 TBA'];
 
+    // Free points credited to all users for matches that kicked off before the app launched.
+    // SA vs Canada (R32, 29 Jun) happened before release — everyone gets +1.
+    const BONUS_POINTS = 1;
+
     function calculateScore(picks) {
-      let score = 0;
-      let bd = { r32: 0, r16: 0, qf: 0, sf: 0, final: 0, thirdPlace: 0, champion: 0 };
+      let score = BONUS_POINTS;
+      let bd = { r32: BONUS_POINTS, r16: 0, qf: 0, sf: 0, final: 0, thirdPlace: 0, champion: 0 };
 
       (picks.r32 || []).forEach(t => { if (t && actualResults.r32.includes(t)) { score += 1; bd.r32++; } });
       (picks.r16 || []).forEach(t => { if (t && actualResults.r16.includes(t)) { score += 2; bd.r16++; } });
