@@ -1879,13 +1879,13 @@
     const R32_KICKOFFS = [
       '2026-06-29T20:30:00Z', // 0  1E vs 3ABCDF
       '2026-06-30T21:00:00Z', // 1  1I vs 3CDFGH
-      '2026-06-28T19:00:00Z', // 2  2A vs 2B      ← pre-launch, exempt
+      '2026-06-28T19:00:00Z', // 2  SA vs Canada (2A vs 2B) ← pre-launch, exempt
       '2026-06-30T01:00:00Z', // 3  1F vs 2C
       '2026-07-02T23:00:00Z', // 4  2K vs 2L
       '2026-07-02T19:00:00Z', // 5  1H vs 2J
       '2026-07-02T00:00:00Z', // 6  1D vs 3BEFIJ
       '2026-07-01T20:00:00Z', // 7  1G vs 3AEHIJ
-      '2026-06-29T17:00:00Z', // 8  SA vs Canada  ← pre-launch, exempt
+      '2026-06-29T17:00:00Z', // 8  1C vs 2F
       '2026-06-30T17:00:00Z', // 9  2E vs 2I
       '2026-07-01T01:00:00Z', // 10 1A vs 3CEFHI
       '2026-07-01T16:00:00Z', // 11 1L vs 3EHIJK
@@ -1895,9 +1895,9 @@
       '2026-07-04T01:30:00Z', // 15 1K vs 3DEIJL
     ].map(d => new Date(d));
 
-    // Matches that kicked off at or before this time were already public at app launch —
-    // everyone can score for those slots regardless of when they submitted.
-    const PRE_LAUNCH_CUTOFF = new Date('2026-06-29T17:00:00Z');
+    // Only slot 2 (SA vs Canada) kicked off before app launch — everyone can score for it.
+    // All other slots require submission before that match's kickoff.
+    const PRE_LAUNCH_CUTOFF = new Date('2026-06-28T19:00:00Z');
 
     function calculateScore(picks) {
       let score = 0;
