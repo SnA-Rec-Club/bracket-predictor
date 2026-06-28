@@ -820,6 +820,7 @@
       <div class="card" style="max-width:900px;text-align:center;">
         <h2 id="find-view-title"></h2>
         <p id="find-view-sub" style="color:#666;font-size:12px;"></p>
+        <div id="find-view-score" style="margin:6px 0 4px;font-size:14px;"></div>
         <button onclick="downloadViewedBracket()" class="btn-secondary" style="padding:8px 16px;font-size:13px;margin-top:8px;">⬇ Download this bracket</button>
       </div>
       <div class="bracket-container">
@@ -1297,10 +1298,28 @@
     function showRetrievedBracket(data, code) {
       lastViewed = Object.assign({}, data, code ? { code: code } : {});
       const view = document.getElementById('find-view');
-      const when = (data.submittedAt && data.submittedAt.toDate) ? data.submittedAt.toDate().toLocaleString() : '';
+      const subTime = (data.submittedAt && data.submittedAt.toDate) ? data.submittedAt.toDate()
+                    : (data.submittedAt ? new Date(data.submittedAt) : null);
+      const when = subTime ? subTime.toLocaleString() : '';
       document.getElementById('find-view-title').textContent =
         `${data.name || 'Bracket'} — Champion: ${data.champion ? formatTeam(data.champion) : '—'}`;
       document.getElementById('find-view-sub').textContent = when ? `Submitted ${when}` : '';
+
+      const scoreEl = document.getElementById('find-view-score');
+      const picks = Object.assign({}, data, code ? { id: code } : {});
+      const { score } = calculateScore(picks);
+      let lockedOut = 0;
+      (data.r32 || []).forEach((t, i) => {
+        if (!t) return;
+        const kickoff = R32_KICKOFFS[i];
+        if (kickoff && kickoff > PRE_LAUNCH_CUTOFF && subTime && subTime >= kickoff) lockedOut++;
+      });
+      const lockedNote = lockedOut > 0
+        ? `<div style="margin-top:6px;font-size:12px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:6px 10px;">⚠️ ${lockedOut} R32 pick${lockedOut > 1 ? 's were' : ' was'} not counted — submitted after those match${lockedOut > 1 ? 'es' : ''} kicked off.</div>`
+        : '';
+      scoreEl.innerHTML = actualResults.r32.length
+        ? `<span style="color:#059669;font-weight:600;">Score: ${score} pts</span>${lockedNote}`
+        : '';
       renderBracket(data, 'view-bracket', false, actualResults);
       // Make the view truly inert: strip the pick handlers so nothing can fire
       // (pointer-events:none already blocks real clicks; this covers the rest).
