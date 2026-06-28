@@ -1500,7 +1500,7 @@
               }
             } else {
               if (known) resultClass = results[roundKey].includes(s.team) ? 'picked-correct' : 'picked-wrong';
-              else resultClass = 'picked-pending';
+              else resultClass = (winner && s.team === winner) ? 'picked-pending' : '';
             }
           }
 
