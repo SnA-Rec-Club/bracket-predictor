@@ -1491,8 +1491,17 @@
           let resultClass = '';
           if (results && s.filled && s.team) {
             const known = Array.isArray(results[roundKey]) && results[roundKey].length > 0;
-            if (known) resultClass = results[roundKey].includes(s.team) ? 'picked-correct' : 'picked-wrong';
-            else resultClass = 'picked-pending';
+            if (isR32) {
+              // Only colour the team the user picked to advance; the other side stays neutral
+              if (winner && s.team === winner) {
+                resultClass = known
+                  ? (results[roundKey].includes(s.team) ? 'picked-correct' : 'picked-wrong')
+                  : 'picked-pending';
+              }
+            } else {
+              if (known) resultClass = results[roundKey].includes(s.team) ? 'picked-correct' : 'picked-wrong';
+              else resultClass = 'picked-pending';
+            }
           }
 
           const stateClass = results
