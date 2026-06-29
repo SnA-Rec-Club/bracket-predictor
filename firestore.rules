@@ -38,6 +38,14 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ---- Precomputed leaderboard -------------------------------------------
+    // World-readable so a leaderboard open is a single doc read instead of a
+    // full scan of /picks. Written only by the Admin SDK updater.
+    match /config/leaderboard {
+      allow read: if true;
+      allow write: if false;
+    }
+
     // ---- Everything else ----------------------------------------------------
     match /{document=**} {
       allow read, write: if false;
