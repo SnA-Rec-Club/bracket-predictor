@@ -1,0 +1,34 @@
+name: Backup contacts (encrypted, one-shot)
+
+# Dumps the private contacts collection, encrypts it with BACKUP_PASSPHRASE,
+# and uploads ONLY the encrypted blob. The repo is public, so plaintext emails
+# must never hit the logs or an artifact. Decrypt locally with openssl.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install firebase-admin
+      - run: node scripts/backup-contacts.mjs
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+      - name: Encrypt dump
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          openssl enc -aes-256-cbc -pbkdf2 -iter 100000 -salt \
+            -pass env:BACKUP_PASSPHRASE \
+            -in contacts.json -out contacts.json.enc
+          rm -f contacts.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: contacts-encrypted
+          path: contacts.json.enc
+          retention-days: 1
