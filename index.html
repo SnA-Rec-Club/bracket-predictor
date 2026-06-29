@@ -2059,51 +2059,82 @@
       }
 
       try {
-        const snapshot = await db.collection('picks').get();
-        const picks = [];
-        snapshot.forEach(doc => picks.push({ id: doc.id, ...doc.data() }));
-
-        if (picks.length === 0) {
-          document.getElementById('leaderboard-content').innerHTML = '<p style="color:#666;">No submissions yet.</p>';
+        // Fast path: one precomputed doc (1 read no matter how many entries).
+        // The hourly updater builds it with the same scoring as calculateScore().
+        const lb = await db.collection('config').doc('leaderboard').get();
+        if (lb.exists && Array.isArray(lb.data().entries) && lb.data().entries.length) {
+          const d = lb.data();
+          const updated = d.updatedAt && d.updatedAt.toDate ? d.updatedAt.toDate() : null;
+          renderLeaderboard(d.entries, updated);
           return;
         }
-
-        picks.forEach(p => {
-          const result = calculateScore(p);
-          p.score = result.score;
-          p.breakdown = result.breakdown;
-        });
-        picks.sort((a, b) => b.score - a.score);
-
-        let html = `<table class="leaderboard-table">
-          <thead><tr><th>#</th><th>Name</th><th>Score</th><th>Prize</th><th>R32</th><th>R16</th><th>QF</th><th>SF</th><th>F</th><th>3rd</th><th>C</th></tr></thead><tbody>`;
-
-        picks.forEach((p, i) => {
-          const rank = i + 1;
-          const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
-          const rc = rank <= 3 ? `rank-${rank}` : rank <= 5 ? 'rank-prize' : '';
-          const prize = PRIZES[i] || '—';
-          html += `<tr class="${rc}">
-            <td><span class="medal">${medal}</span></td>
-            <td>${p.name}</td>
-            <td class="score">${p.score}</td>
-            <td class="breakdown" style="color:#e94560;font-weight:600;">${prize}</td>
-            <td class="breakdown">${p.breakdown.r32}/16</td>
-            <td class="breakdown">${p.breakdown.r16}/8</td>
-            <td class="breakdown">${p.breakdown.qf}/4</td>
-            <td class="breakdown">${p.breakdown.sf}/2</td>
-            <td class="breakdown">${p.breakdown.final}/2</td>
-            <td class="breakdown">${p.breakdown.thirdPlace}/1</td>
-            <td class="breakdown">${p.breakdown.champion}/1</td>
-          </tr>`;
-        });
-
-        html += '</tbody></table>';
-        document.getElementById('leaderboard-content').innerHTML = html;
+        // Fallback: compute from the raw collection (doc not built yet).
+        await loadLeaderboardFromCollection();
       } catch (e) {
-        console.error(e);
-        document.getElementById('leaderboard-content').innerHTML = '<p>Error loading.</p>';
+        console.error('Precomputed leaderboard read failed, falling back:', e);
+        try {
+          await loadLeaderboardFromCollection();
+        } catch (e2) {
+          console.error(e2);
+          document.getElementById('leaderboard-content').innerHTML = '<p>Error loading.</p>';
+        }
       }
+    }
+
+    // Fallback path: read the whole picks collection and score client-side.
+    async function loadLeaderboardFromCollection() {
+      const snapshot = await db.collection('picks').get();
+      const picks = [];
+      snapshot.forEach(doc => picks.push({ id: doc.id, ...doc.data() }));
+      if (picks.length === 0) {
+        document.getElementById('leaderboard-content').innerHTML = '<p style="color:#666;">No submissions yet.</p>';
+        return;
+      }
+      picks.forEach(p => {
+        const result = calculateScore(p);
+        p.score = result.score;
+        p.breakdown = result.breakdown;
+      });
+      picks.sort((a, b) => b.score - a.score);
+      renderLeaderboard(picks, null);
+    }
+
+    // Render a sorted array of { name, score, breakdown } into the table.
+    function renderLeaderboard(entries, updatedAt) {
+      if (!entries.length) {
+        document.getElementById('leaderboard-content').innerHTML = '<p style="color:#666;">No submissions yet.</p>';
+        return;
+      }
+
+      const stamp = updatedAt
+        ? `<p style="font-size:12px;color:#94a3b8;margin:0 0 10px;">Updated ${updatedAt.toLocaleString()} · refreshes hourly. Just submitted? Use “View my score” for your live score.</p>`
+        : '';
+
+      let html = stamp + `<table class="leaderboard-table">
+        <thead><tr><th>#</th><th>Name</th><th>Score</th><th>Prize</th><th>R32</th><th>R16</th><th>QF</th><th>SF</th><th>F</th><th>3rd</th><th>C</th></tr></thead><tbody>`;
+
+      entries.forEach((p, i) => {
+        const rank = i + 1;
+        const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
+        const rc = rank <= 3 ? `rank-${rank}` : rank <= 5 ? 'rank-prize' : '';
+        const prize = PRIZES[i] || '—';
+        html += `<tr class="${rc}">
+          <td><span class="medal">${medal}</span></td>
+          <td>${p.name}</td>
+          <td class="score">${p.score}</td>
+          <td class="breakdown" style="color:#e94560;font-weight:600;">${prize}</td>
+          <td class="breakdown">${p.breakdown.r32}/16</td>
+          <td class="breakdown">${p.breakdown.r16}/8</td>
+          <td class="breakdown">${p.breakdown.qf}/4</td>
+          <td class="breakdown">${p.breakdown.sf}/2</td>
+          <td class="breakdown">${p.breakdown.final}/2</td>
+          <td class="breakdown">${p.breakdown.thirdPlace}/1</td>
+          <td class="breakdown">${p.breakdown.champion}/1</td>
+        </tr>`;
+      });
+
+      html += '</tbody></table>';
+      document.getElementById('leaderboard-content').innerHTML = html;
     }
 
     async function loadResults() {
