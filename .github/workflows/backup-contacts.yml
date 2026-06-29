@@ -23,6 +23,11 @@ jobs:
         env:
           BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
         run: |
+          if [ -z "$BACKUP_PASSPHRASE" ]; then
+            echo "BACKUP_PASSPHRASE secret is not set — refusing to encrypt with an empty passphrase."
+            echo "Set it first:  gh secret set BACKUP_PASSPHRASE --repo SnA-Rec-Club/bracket-predictor"
+            exit 1
+          fi
           openssl enc -aes-256-cbc -pbkdf2 -iter 100000 -salt \
             -pass env:BACKUP_PASSPHRASE \
             -in contacts.json -out contacts.json.enc
