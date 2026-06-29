@@ -1,2 +1,5 @@
 # Local dev tooling (not part of the app)
 .claude/
+
+# Local data backups (contains participant names + picks — keep off the public repo)
+backups/
