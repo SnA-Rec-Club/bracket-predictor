@@ -233,49 +233,10 @@ async function main() {
   }
   await db.collection('config').doc('settings').set(settings, { merge: true });
 
-  // --- Precompute the leaderboard into a single doc ------------------------
-  // Clients then read ONE doc (config/leaderboard) instead of the whole picks
-  // collection, turning an N-read leaderboard open into a 1-read open.
-  // Scoring MUST mirror calculateScore() in index.html exactly.
-  const PRE_LAUNCH_CUTOFF = new Date('2026-06-28T19:00:00Z');
-  const R32_KICKOFFS = R32.map(s => new Date(s.date));
-  const scoreOne = (p) => {
-    let score = 0;
-    const bd = { r32: 0, r16: 0, qf: 0, sf: 0, final: 0, thirdPlace: 0, champion: 0 };
-    const subTime = p.submittedAt
-      ? (p.submittedAt.toDate ? p.submittedAt.toDate() : new Date(p.submittedAt))
-      : null;
-    (p.r32 || []).forEach((t, i) => {
-      if (!t || !results.r32.includes(t)) return;
-      const kickoff = R32_KICKOFFS[i];
-      // Post-launch matches: only score if submitted before kickoff.
-      if (kickoff && kickoff > PRE_LAUNCH_CUTOFF && subTime && subTime >= kickoff) return;
-      score += 1; bd.r32++;
-    });
-    (p.r16 || []).forEach(t => { if (t && results.r16.includes(t)) { score += 2; bd.r16++; } });
-    (p.qf || []).forEach(t => { if (t && results.qf.includes(t)) { score += 4; bd.qf++; } });
-    (p.sf || []).forEach(t => { if (t && results.sf.includes(t)) { score += 8; bd.sf++; } });
-    (p.final || []).forEach(t => { if (t && results.final.includes(t)) { score += 12; bd.final++; } });
-    if (p.thirdPlace && p.thirdPlace === results.thirdPlace) { score += 8; bd.thirdPlace = 1; }
-    if (p.champion && p.champion === results.champion) { score += 20; bd.champion = 1; }
-    return { score, breakdown: bd };
-  };
-
-  const picksSnap = await db.collection('picks').get();
-  const entries = [];
-  picksSnap.forEach(doc => {
-    const p = doc.data();
-    const { score, breakdown } = scoreOne(p);
-    entries.push({ name: p.name || '(no name)', score, breakdown });
-  });
-  entries.sort((a, b) => b.score - a.score); // stable: ties keep collection order
-  await db.collection('config').doc('leaderboard').set({
-    entries,
-    count: entries.length,
-    updatedAt: FieldValue.serverTimestamp(),
-  });
-
-  console.log(`Wrote config/results, config/settings, and config/leaderboard (${entries.length} entries).`);
+  // NOTE: the leaderboard is built by a SEPARATE workflow (build-leaderboard.yml)
+  // so a flaky football-data fetch here can't block leaderboard refreshes, and
+  // vice-versa. See scripts/build-leaderboard.mjs.
+  console.log('Wrote config/results and config/settings.');
 }
 
 main().catch(e => { console.error(e); process.exit(1); });

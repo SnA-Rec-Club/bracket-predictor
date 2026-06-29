@@ -1,0 +1,33 @@
+name: Build leaderboard
+
+# Rebuilds config/leaderboard from config/results + picks every 15 minutes.
+# Independent of "Update results" — makes no external API calls, so a flaky
+# football-data fetch can never block leaderboard refreshes.
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'   # every 15 minutes (UTC)
+  workflow_dispatch:          # manual run from the Actions tab
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        working-directory: scripts
+        run: npm install
+
+      - name: Build leaderboard
+        working-directory: scripts
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: node build-leaderboard.mjs
