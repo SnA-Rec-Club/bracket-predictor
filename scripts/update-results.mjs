@@ -129,8 +129,19 @@ async function main() {
 
   for (const m of matches) {
     if (m.status !== 'FINISHED') continue;
-    const winnerName = m.score?.winner === 'HOME_TEAM' ? m.homeTeam?.name
-                     : m.score?.winner === 'AWAY_TEAM' ? m.awayTeam?.name : null;
+    // football-data.org leaves score.winner null for penalty shootouts (it sets
+    // duration=PENALTY_SHOOTOUT instead). Fall back to the fullTime score, which
+    // includes the shootout total, so the higher side is the winner. Without
+    // this, any penalty-decided knockout match is silently dropped.
+    let side = m.score?.winner;
+    if (side !== 'HOME_TEAM' && side !== 'AWAY_TEAM') {
+      const ft = m.score?.fullTime;
+      if (ft && typeof ft.home === 'number' && typeof ft.away === 'number' && ft.home !== ft.away) {
+        side = ft.home > ft.away ? 'HOME_TEAM' : 'AWAY_TEAM';
+      }
+    }
+    const winnerName = side === 'HOME_TEAM' ? m.homeTeam?.name
+                     : side === 'AWAY_TEAM' ? m.awayTeam?.name : null;
     const w = normTeam(winnerName);
     if (!w) continue;
     const round = STAGE_TO_ROUND[m.stage];
